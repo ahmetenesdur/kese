@@ -8,3 +8,9 @@ target/
 
 # Personal notes (Turkish) — never committed
 *.tr.md
+
+# Local scratch pending manual deletion
+_to_delete/
+
+# Claude Code local settings
+.claude/settings.local.json

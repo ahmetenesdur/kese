@@ -4,8 +4,8 @@ Deadline: **Aug 31, 23:59 UTC**. Judging: 30% STRK20 depth · 30% mainnet produc
 Rule of thumb: cut features, never cut the demo/video/docs days.
 
 ## Phase S — Spike & unblock (Day 1, Aug 21)
-- [ ] Owner: fork + registry.json PR (entry template in SUBMISSION.md) — register immediately, don't wait
-- [ ] Owner: open GitHub issue requesting the mainnet **proving service URL** (the Day-0 guide says to ask via issue); ask for the Sepolia URL too
+- [x] Owner: registry PR submitted → applied to main by automation (PR #146, commit 826bf64) — **registered**
+- [x] Owner: proving-access issue opened → starkience/strk20-hackathon#147 (awaiting reply; watch notifications)
 - [ ] SDK install (GitHub Packages auth! notes §1) + `scripts/day1-sepolia-smoke.ts`: register → shield → private transfer → withdraw on **Sepolia**
 - [ ] Measure: proof time, failure modes. Record in docs/decisions.md
 - **GATE G1:** Did the smoke test pass? If not → 1 day of debugging; if still red by end of Day 3 → switch to the Wallet-API-route fallback design (below) or withdraw. Apply without sentiment.
