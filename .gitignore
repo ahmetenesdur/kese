@@ -14,3 +14,7 @@ _to_delete/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Vendored SDK tarball (local unblock until read:packages scope is granted — see docs/decisions.md D-005)
+vendor/
+smoke-report*.json

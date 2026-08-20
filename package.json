@@ -3,9 +3,27 @@
   "private": true,
   "description": "Private money for AI agents on STRK20 — policy-guarded MCP wallet layer",
   "license": "MIT",
-  "engines": { "node": ">=24" },
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "pnpm -r build",
-    "smoke:sepolia": "tsx scripts/day1-sepolia-smoke.ts"
+    "typecheck": "tsc --noEmit -p tsconfig.scripts.json",
+    "smoke": "tsx scripts/day1-sepolia-smoke.ts",
+    "smoke:mock": "tsx scripts/day1-sepolia-smoke.ts --mode=mock",
+    "smoke:simulate": "tsx scripts/day1-sepolia-smoke.ts --mode=simulate",
+    "smoke:sepolia": "tsx scripts/day1-sepolia-smoke.ts --mode=service",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@starkware-libs/starknet-privacy-sdk": "file:./vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz",
+    "starknet": "10.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

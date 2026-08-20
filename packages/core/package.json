@@ -3,6 +3,13 @@
   "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
-  "scripts": { "build": "tsc -p .", "test": "vitest run" },
-  "license": "MIT"
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "vitest run"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@starkware-libs/starknet-privacy-sdk": "file:../../vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz",
+    "starknet": "10.5.0"
+  }
 }
