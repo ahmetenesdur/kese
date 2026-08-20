@@ -6,9 +6,14 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 ## Phase S — Spike & unblock (Day 1, Aug 21)
 - [x] Owner: registry PR submitted → applied to main by automation (PR #146, commit 826bf64) — **registered**
 - [x] Owner: proving-access issue opened → starkience/strk20-hackathon#147 (awaiting reply; watch notifications)
-- [ ] SDK install (GitHub Packages auth! notes §1) + `scripts/day1-sepolia-smoke.ts`: register → shield → private transfer → withdraw on **Sepolia**
-- [ ] Measure: proof time, failure modes. Record in docs/decisions.md
+- [x] SDK install — GitHub Packages **403: `gh` token lacks `read:packages`**. Unblocked by building the public monorepo (`36eac4e`, v0.14.3-rc.5) and installing the packed tarball from gitignored `vendor/` (decisions D-005). **Owner: run `gh auth refresh -h github.com -s read:packages` to restore the canonical install.**
+- [x] `scripts/day1-sepolia-smoke.ts` implemented — 3 modes (`mock` / `simulate` / `service`), full preflight, blocker attribution, JSON report
+- [x] `--mode=mock`: **7/7 steps pass** — register (both parties) → shield → discoverNotes → private transfer → recipient-side verification → withdraw
+- [x] `--mode=simulate` preflight green against live Sepolia: RPC (spec 0.10.3-rc.0), pool `0x0254a6…0d91`, STRK token, `provingBlockId = head − 10`
+- [ ] Live Sepolia run — blocked on: **signer** (`ACCOUNT_ADDRESS` / `ACCOUNT_PRIVATE_KEY` / `VIEWING_KEY`, owner) and **proving URL** (#147, upstream)
+- [x] Measure: proof-time instrumentation in place (`TimedProofProvider` isolates prove() from submission); real numbers await the proving URL. Failure modes recorded in docs/decisions.md D-005..D-009
 - **GATE G1:** Did the smoke test pass? If not → 1 day of debugging; if still red by end of Day 3 → switch to the Wallet-API-route fallback design (below) or withdraw. Apply without sentiment.
+  - **Day-1 verdict: PARTIAL / open — do not pivot.** Nothing failed for a reason inside our control; the only blockers are externally owned. "Red" means *our* code fails, not that a third party hasn't replied. Full evidence: docs/decisions.md D-009.
 
 ## Phase A — Policy core (Days 2-3)
 - [ ] `packages/policy`: limits (per-tx / rolling daily), allowlist, SQLite persistence, **reservation lock** (concurrent spend), **idempotency store**, decision log

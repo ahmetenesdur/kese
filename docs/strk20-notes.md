@@ -12,6 +12,12 @@ Key objects: Notes · Nullifiers (double-spend prevention) · Viewing keys (regi
 
 Package: `@starkware-libs/starknet-privacy-sdk` · Node **≥ 24** (WebCrypto). Distributed via **GitHub Packages**, so:
 
+> **Verified Aug 21, 2026:** the `read:packages` scope is the whole ball game — without it the
+> registry returns `403 permission_denied` even though the package is published. `gh auth refresh`
+> is an interactive device-flow, so it is an owner action. Fallback used on Day 1: build the public
+> monorepo and install the packed tarball (docs/decisions.md D-005). Current pinned version:
+> **0.14.3-rc.5** (monorepo commit `36eac4e`).
+
 ```sh
 gh auth refresh -h github.com -s read:packages
 npm config set @starkware-libs:registry https://npm.pkg.github.com
@@ -38,10 +44,20 @@ const transfers = createPrivateTransfers({
   account,
   viewingKeyProvider: { getViewingKey: async () => BigInt(process.env.VIEWING_KEY!) }, // MUST be bigint
   provingProvider: { url: process.env.PROVING_SERVICE_URL!, chainId: constants.StarknetChainId.SN_MAIN },
-  discoveryProvider: /* prefer ContractDiscoveryProvider(poolContract) — RPC-based, no indexer */ { url: process.env.INDEXER_URL! },
+  // NOTE (corrected Aug 21): ContractDiscoveryProvider is exported from the
+  // `@starkware-libs/starknet-privacy-sdk/testing` subpath — NOT the package entry — and takes a
+  // pool *contract object*, not an address. The vendor labels it "for development and testing";
+  // IndexerDiscoveryProvider is the production one. See docs/decisions.md D-007.
+  discoveryProvider: { url: process.env.INDEXER_URL! },   // or new ContractDiscoveryProvider(poolContract)
   poolContractAddress: process.env.POOL_ADDRESS!,
 })
 ```
+
+`provingProvider` / `discoveryProvider` accept **either** a live instance or a plain config object
+(`ProofProviderInterface | ProofProviderConfig`) — the factory builds the production provider from a
+config, so the shape above is valid. When prose and types disagree, `dist/interfaces.d.ts` wins:
+the README's `simulate({ provider })` is really `{ node }`, and a JSDoc `deposit(100n)` is really
+`deposit({ amount })`.
 
 Builder chain: `.build({ autoRegister, autoSetup, autoSelectNotes, autoDiscover })` → `.register()` (once per account) → `.with(token, t => t.deposit/transfer/withdraw/inputs)` → `.surplusTo(address)` → `.execute({ provingBlockId })` ⇒ `{ callAndProof: { call, proof } }`.
 State: `transfers.discoverNotes({ tokens: [BigInt(...)] })` ⇒ `Map<token, Note[]>`; `transfers.classifyTransaction(tx)` for history. `Note`: `{ id, token, amount, created }`.
@@ -54,11 +70,18 @@ State: `transfers.discoverNotes({ tokens: [BigInt(...)] })` ⇒ `Map<token, Note
 | Sepolia pool (v2.0) | `0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91` |
 | Public mainnet RPC (Day-0 guide) | `https://rpc.starknet.lava.build` (`SN_MAIN` = `0x534e5f4d41494e`) |
 | Proving service (mainnet) | **NOT PUBLISHED** — "contact the team via issue if your design requires the Privacy SDK route with proving services" ⇒ Day-1: open issue on `starkience/strk20-hackathon` |
-| Discovery | `ContractDiscoveryProvider(poolContract)` via RPC (slower, zero external deps) — our default |
+| Discovery | `ContractDiscoveryProvider(poolContract)` via RPC (slower, zero external deps) — Phase S default; **vendor labels it dev/testing-only**, re-decide before mainnet (decisions D-007). Production: `IndexerDiscoveryProvider(url, pool)` |
 
 ## 4. Proving rules
 
 - `provingBlockId = (await provider.getBlockNumber()) - 10` — **always**. Reasons: 10-block note maturity, reorg buffer, discovery/proving state consistency.
+- **The 10-block rule is not only about notes** (corrected Aug 21). *Any* on-chain state the proof
+  reads must be ≥10 blocks old, transparent transactions included: you cannot `register()` within
+  ~10 blocks of the account's deploy, nor `deposit()` within ~10 blocks of the ERC-20 transfer that
+  funded it, nor prove a new private tx until the previous one's block is that deep. Direct hazard
+  for a burst-paying agent — see `packages/core/src/notes.ts`.
+- Submission shape: `execute()` ⇒ `{ callAndProof, registry, warnings }`, then
+  `account.execute(callAndProof.call, { tip: 0n, resourceBounds, proofFacts: callAndProof.proof.proofFacts, proof: callAndProof.proof.data })`.
 - Re-fetch block number after each `waitForTransaction` when chaining; call `transfers.invalidateProofNonceCache()` where docs indicate.
 - Proof validity window ≈ 450 blocks (~15 min). Proof generation ≈ 29 s on hosted service (show progress in UX; queue jobs).
 - v3 txs: `tip: 0n` mandatory.

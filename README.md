@@ -43,12 +43,27 @@ Owner-side: shield once from Ready wallet, set policies, watch the dashboard, ex
 ## Quickstart
 
 ```sh
-# Node >= 24, pnpm; SDK ships via GitHub Packages — see docs/strk20-notes.md §1
+# Node >= 24, pnpm. The SDK ships via GitHub Packages and needs the read:packages scope:
+gh auth refresh -h github.com -s read:packages   # once; see docs/strk20-notes.md §1
 pnpm install
+# If install 403s (scope not granted): ./scripts/vendor-sdk.sh && pnpm install   → decisions D-005
+
 bash scripts/setup-skills.sh   # STRK20 + Anthropic agent skills (see CLAUDE.md "Skills")
-cp .env.example .env   # fill: RPC, account, viewing key, proving URL
-pnpm smoke:sepolia     # register → shield → private pay → withdraw
+cp .env.example .env           # fill: RPC, account, viewing key, proving URL
 ```
+
+Verify the STRK20 integration end to end. The smoke test runs at three levels of reality, so
+you can validate the flow before you have credentials or a proving service:
+
+```sh
+pnpm smoke:mock       # in-memory pool — no chain, no keys, no proving service
+pnpm smoke:simulate   # live Sepolia pool + real discovery, SDK mock prover, nothing submitted
+pnpm smoke:sepolia    # the real thing: real proofs, real transactions
+pnpm test             # unit tests
+```
+
+Every run prints a preflight, says exactly what is blocked and who can unblock it, and writes
+`smoke-report.json`.
 
 ## Honest privacy limitations
 
