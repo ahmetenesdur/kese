@@ -53,6 +53,7 @@ LLM agent ──MCP──► packages/mcp ──► packages/policy (ALWAYS betw
 - Tests: vitest for TS (policy engine gets exhaustive tests — race conditions, idempotency, limit windows); `snforge` for Cairo.
 - Commit style: `feat(policy): ...`, `feat(mcp): ...`, small and frequent. Keep `PLAN.md` checkboxes updated as you complete work.
 - UX copy in English; keep README screenshots-ready (judges skim).
+- The owner may talk to you in Turkish — reply in Turkish, but ALL artifacts stay in English: code, comments, docs, commit messages, UX copy, PLAN.md updates.
 - Never install deps with `--force`; if the SDK install fails, stop and surface it (likely GitHub Packages auth — see notes §1).
 
 ## Note-denomination strategy (why packages/core/src/notes.ts exists)
