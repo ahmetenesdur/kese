@@ -1,0 +1,14 @@
+# Kese — private money for AI agents on STRK20
+# Machine-readable index for coding agents.
+
+CLAUDE.md            : build instructions & conventions for coding agents (start here)
+PLAN.md              : 10-day build plan with acceptance criteria and decision gates
+docs/strk20-notes.md : distilled STRK20 protocol knowledge, exact APIs, addresses, gotchas
+docs/architecture.md : components, flows, security model
+SUBMISSION.md        : hackathon submission checklist + registry entry
+packages/core        : STRK20 SDK wrapper (register/shield/transfer/withdraw/notes)
+packages/policy      : deterministic guardrails (limits, allowlist, reservations, idempotency)
+packages/mcp         : MCP server exposing safe money tools to LLM agents
+packages/approvals   : human-in-the-loop approval (Telegram + web)
+contracts/escrow-claim : Cairo privacy_invoke helper — claim-link payments (+refund extension)
+scripts/setup-skills.sh : installs recommended agent skills (STRK20 official + Anthropic dev skills)

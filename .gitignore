@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+dist/
+target/
+*.log
+.DS_Store
+
+# Personal notes (Turkish) — never committed
+*.tr.md

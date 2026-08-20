@@ -1,0 +1,98 @@
+# STRK20 — distilled protocol notes for Kese
+
+Compiled Aug 20, 2026 from primary sources: [strk20-by-example.org](https://strk20-by-example.org/) (full archive: `/llms-full.txt`), the hackathon [Day-0 mainnet guide](https://github.com/starkience/strk20-hackathon/blob/main/docs/MAINNET-DAY-0.md), and the SDK docs. Treat this file as ground truth until a linked doc contradicts it.
+
+## 0. Mental model
+
+Note-based shielded pool (encrypted UTXOs), not a mixer. Shield turns public ERC-20 into encrypted **notes**; private transfers spend notes and create new ones — sender, recipient, amount, token all hidden in-pool. **Edges are public**: deposits/withdrawals show address+amount. Every private tx carries a Stwo STARK proof verified on-chain. Compliance: FPI screens every deposit (signature verified on-chain); per-user **viewing keys** enable selective disclosure (auditor can trace, cannot spend).
+
+Key objects: Notes · Nullifiers (double-spend prevention) · Viewing keys (registration required for BOTH sender and recipient) · Channels (directional sender→recipient lanes) · Open notes (deferred-amount outputs for DeFi) · Anonymizer contracts (`privacy_invoke` helpers).
+
+## 1. SDK install (gotcha-laden)
+
+Package: `@starkware-libs/starknet-privacy-sdk` · Node **≥ 24** (WebCrypto). Distributed via **GitHub Packages**, so:
+
+```sh
+gh auth refresh -h github.com -s read:packages
+npm config set @starkware-libs:registry https://npm.pkg.github.com
+npm config set '//npm.pkg.github.com/:_authToken' "$(gh auth token)"
+pnpm add @starkware-libs/starknet-privacy-sdk
+# fallback: pnpm add "starkware-libs/starknet-privacy#<commit-sha>"
+```
+
+## 2. Initialization (verbatim-adapted)
+
+```ts
+import { Account, RpcProvider, constants } from "starknet" // starknet.js >= 10.4.0
+import { createPrivateTransfers } from "@starkware-libs/starknet-privacy-sdk"
+
+const provider = new RpcProvider({ nodeUrl: process.env.RPC_URL! })
+const account = new Account({
+  provider,
+  address: process.env.ACCOUNT_ADDRESS!,
+  signer: process.env.ACCOUNT_PRIVATE_KEY!,
+  cairoVersion: "1",
+})
+
+const transfers = createPrivateTransfers({
+  account,
+  viewingKeyProvider: { getViewingKey: async () => BigInt(process.env.VIEWING_KEY!) }, // MUST be bigint
+  provingProvider: { url: process.env.PROVING_SERVICE_URL!, chainId: constants.StarknetChainId.SN_MAIN },
+  discoveryProvider: /* prefer ContractDiscoveryProvider(poolContract) — RPC-based, no indexer */ { url: process.env.INDEXER_URL! },
+  poolContractAddress: process.env.POOL_ADDRESS!,
+})
+```
+
+Builder chain: `.build({ autoRegister, autoSetup, autoSelectNotes, autoDiscover })` → `.register()` (once per account) → `.with(token, t => t.deposit/transfer/withdraw/inputs)` → `.surplusTo(address)` → `.execute({ provingBlockId })` ⇒ `{ callAndProof: { call, proof } }`.
+State: `transfers.discoverNotes({ tokens: [BigInt(...)] })` ⇒ `Map<token, Note[]>`; `transfers.classifyTransaction(tx)` for history. `Note`: `{ id, token, amount, created }`.
+
+## 3. Addresses & endpoints
+
+| Thing | Value |
+|---|---|
+| Mainnet pool | `0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a` |
+| Sepolia pool (v2.0) | `0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91` |
+| Public mainnet RPC (Day-0 guide) | `https://rpc.starknet.lava.build` (`SN_MAIN` = `0x534e5f4d41494e`) |
+| Proving service (mainnet) | **NOT PUBLISHED** — "contact the team via issue if your design requires the Privacy SDK route with proving services" ⇒ Day-1: open issue on `starkience/strk20-hackathon` |
+| Discovery | `ContractDiscoveryProvider(poolContract)` via RPC (slower, zero external deps) — our default |
+
+## 4. Proving rules
+
+- `provingBlockId = (await provider.getBlockNumber()) - 10` — **always**. Reasons: 10-block note maturity, reorg buffer, discovery/proving state consistency.
+- Re-fetch block number after each `waitForTransaction` when chaining; call `transfers.invalidateProofNonceCache()` where docs indicate.
+- Proof validity window ≈ 450 blocks (~15 min). Proof generation ≈ 29 s on hosted service (show progress in UX; queue jobs).
+- v3 txs: `tip: 0n` mandatory.
+
+## 5. Registration
+
+Account must register (publish viewing key) before holding/receiving private balance; **both sides** must be registered for a private transfer. Wallet-route: sign `${chainId}:${poolAddress}` via standard `signMessage` (emits `ViewingKeySet`); or use the UI at strk20.starknet.io/app. Unregistered recipients ⇒ use our escrow claim-link.
+
+## 6. Escrow helper (basis for contracts/escrow-claim)
+
+Reference (unofficial, unaudited — we own review): commitment = `poseidon(ESCROW_COMMITMENT_TAG, secret)`; two ops through ONE `privacy_invoke` entry:
+
+```cairo
+#[starknet::interface]
+pub trait IEscrow<T> {
+  fn get_commitment(self: @T, commitment_hash: felt252) -> CommitmentEntry;
+  fn privacy_invoke(ref self: T, operation: EscrowOperation, commitment_hash: felt252,
+    token: ContractAddress, amount: u128, secret: felt252, note_id: felt252) -> Span<OpenNoteDeposit>;
+}
+// CommitmentEntry { token, amount, claimed } ; EscrowOperation { Deposit, Claim }
+```
+
+Deposit: pool withdraws to escrow, stores entry. Claim: recipient proves secret preimage; contract flips `claimed` once (`ALREADY_CLAIMED` guard), approves pool, returns `OpenNoteDeposit` crediting claimer's note. Caller must be pool ("nobody can drive the escrow directly"). Constructor takes pool address. **Reference has NO refund/timeout — our extension adds `expiry` + `refund()` back to payer** (that's our Cairo contribution; spec in contracts/escrow-claim/README.md).
+
+`privacy_invoke` general rules: return exactly `Span<OpenNoteDeposit>`; approve-don't-transfer (pool pulls); measure outputs via balance delta; one invoke per pool tx; assert non-zero output where applicable.
+
+## 7. Wallet API route (fallback/complement)
+
+`starknet.js ≥ 10.4.0`: `account.strk20InvokeTransaction(actions)`, `strk20PrepareInvoke(actions, simulate?)`, `strk20Balances([...tokens])`. Actions: `{type:"transfer", token, amount:"OPEN"|number, recipient}` | `{type:"invoke", contract, calldata}` with placeholders `${openNoteIds[N]}`, `${poolAddress}`. Wallet holds keys & proofs. Wallet support: **Ready** works on mainnet (Braavos per Day-0 guide; Xverse in progress). Use this route for the OWNER's shield/registration UX; SDK route for the agent's server-side spending.
+
+## 8. Privacy limitations (be honest in UX + README)
+
+Deposits/withdrawals public by design · channel-open timing can correlate · distinctive amounts weaken anonymity (use round denominations) · swaps: "amounts and timing visible; anonymity comes from shared address and mixing set" · private tx senders appear as rotating relayers in explorers. Eligibility counts the `Deposit` event's `user_addr`, not tx sender.
+
+## 9. Hackathon submission mechanics
+
+Fork `starkience/strk20-hackathon` → add entry to `registry.json` (repo_url + telegram; name/description/category/inspired_by optional) → PR merged = accepted. Final: `strk20.json` in OUR repo root (≥3 mainnet tx hashes touching pool, contracts[], demo_video, demo_url). "Ideas are not exclusive." "If other sprint projects end up depending on yours, that counts in your favour." Support via GitHub issues.

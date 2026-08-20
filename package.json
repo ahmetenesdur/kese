@@ -1,0 +1,11 @@
+{
+  "name": "kese",
+  "private": true,
+  "description": "Private money for AI agents on STRK20 — policy-guarded MCP wallet layer",
+  "license": "MIT",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "pnpm -r build",
+    "smoke:sepolia": "tsx scripts/day1-sepolia-smoke.ts"
+  }
+}
