@@ -1,0 +1,38 @@
+[package]
+name = "escrow_claim"
+version = "0.1.0"
+edition = "2024_07"
+license = "MIT"
+
+# Deliberately NO dependency on the SDK monorepo's `privacy` package.
+#
+# It pins starknet 2.17 / snforge_std 0.63 and pulls openzeppelin, starkware_utils and ekubo; this
+# repo's toolchain is scarb 2.16 / snforge 0.57. Adopting that tree to borrow one three-field struct
+# and an ERC20 dispatcher would mean a toolchain upgrade mid-sprint, for no safety gained: ABI
+# compatibility is a matter of SERIALISATION, and `OpenNoteDeposit` is three flat fields. Both are
+# declared locally, with the upstream definition quoted where they are.
+[dependencies]
+starknet = "2.16.0"
+
+[dev-dependencies]
+snforge_std = "0.57.0"
+assert_macros = "2.16.0"
+
+# Use the published plugin binary instead of building it from source: snforge_scarb_plugin is a
+# Rust proc-macro, and this machine has no cargo. The SDK monorepo does the same.
+[tool.scarb]
+allow-prebuilt-plugins = ["snforge_std"]
+
+[features]
+test_utils = []
+
+[[test]]
+name = "escrow_claim_unittest"
+build-external-contracts = ["escrow_claim::mocks::MockERC20"]
+
+[[target.starknet-contract]]
+sierra = true
+casm = true
+
+[scripts]
+test = "snforge test"
