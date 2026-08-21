@@ -481,3 +481,87 @@ codes now distinguish `owner_denied` (a person said no), `approval_timeout` (nob
 That is the fourth defect of this shape in one session (D-025, D-026 ×2, D-027 ×2). None was a
 crash; every one was a confident, wrong answer, and every one was found by looking at what a human
 actually sees rather than by a test. Worth carrying into Phase C: **run it, then read it.**
+
+---
+
+## Phase C (Aug 21, 2026) — the escrow claim-link
+
+### D-028 — Mutation testing, because the contract was not written test-first
+
+The Cairo contract was written before its tests — not TDD, and 17 of 17 passed on the first run,
+which proves nothing about whether they can catch anything. So each security guarantee was
+deliberately broken in the contract to confirm a test goes red:
+
+| Mutation | Result |
+|---|---|
+| caller-is-pool check removed | ✅ test failed |
+| refund-secret check removed | ✅ test failed |
+| deposit funding check removed | ✅ test failed |
+| domain separation removed (both tags identical) | ❌ **test still passed** |
+
+The fourth test was measuring nothing. It computed the stored refund hash with *its own* copy of
+the tag constant, so mutating the contract's constant simply made the two disagree — and it failed
+for the same reason the "wrong secret" test already covers. Replaced with one that deposits a
+refund commitment built under the **claim** tag: if the contract hashed the refund preimage under
+that same tag it would match, so the test only passes while the two domains really are separate.
+It kills the mutation.
+
+Chasing it also corrected the contract's own comment, which claimed more than the code delivers —
+see D-029.
+
+### D-029 — What domain separation does not buy
+
+The first version of the module doc said different tags mean "a claim secret can never be replayed
+as a refund secret". That is wrong. The tags are **public constants**, so a payer who uses one
+secret for both roles lets the recipient derive the refund commitment too — different tags make the
+two hashes differ, they cannot make a reused secret safe.
+
+What is actually true: the tags put the two preimages in disjoint hash spaces, so neither commitment
+can be mistaken for the other. The contract additionally rejects the degenerate case where both
+commitments are literally equal. **Genuinely independent secrets are an invariant of whoever
+generates them** — enforced in `packages/core/src/claimlink.ts` and tested there, because the
+contract structurally cannot check it: it only ever sees hashes.
+
+### D-030 — The refund problem the reference never had to solve
+
+The reference escrow has no refund: an unclaimed payment is locked forever. Adding one runs into a
+constraint that is the whole point of the pool — **the escrow cannot see who is asking.** Every call
+arrives from the privacy contract, so `get_caller_address()` is the pool, never the payer. A refund
+keyed on "the payer asked" is unimplementable; one keyed on the commitment hash alone would let
+anyone who reads the chain refund a stranger's escrow into their own note.
+
+So the payer holds a secret too: a refund commitment kept back while the claim commitment travels in
+the link. Claiming proves one preimage, refunding proves the other. Symmetric, needs no identity,
+and it is the design contribution of this contract.
+
+Also enforced, and not in the reference: **a deposit must be backed by funds not already promised.**
+Each deposit alone can look sufficiently funded while the money is spoken for by an earlier
+commitment; without tracking obligations per token, whoever claims last finds nothing left.
+
+### D-031 — Cross-language hash agreement is pinned from both sides
+
+The server builds the commitment in TypeScript; the contract verifies it in Cairo. If
+`starknet.js`'s `computePoseidonHashOnElements` and Cairo's `poseidon_hash_span` ever disagree over
+the same two felts, **every claim link becomes unclaimable** — and it would present as "wrong
+secret", not "wrong hash function".
+
+One constant, `poseidon(CLAIM_TAG, 'claim-secret-abc')`, is now asserted from both sides:
+`packages/core/src/claimlink.test.ts` and `contracts/escrow-claim/src/tests.cairo`. Either language
+changing its mind breaks one of the two.
+
+### D-032 — Deployed to Sepolia
+
+`0x1ff4c7f216a9e1452e4533e03f926e2b10c7868a085b52c6034bcaa3cf3108`, tx
+`0x5752eef95c5932977e91dfa3680d60a7bc1326f69a682535e997cc7a65698d9`. Verified on-chain: calling
+`pool()` returns the Sepolia pool address, so the contract's entire access control — its single
+constructor argument — is correctly wired.
+
+Deployed with starknet.js rather than `sncast`, because the account was created and deployed with
+starknet.js (`pnpm keys:gen`) and a second account configuration would be one more thing to keep in
+step. `pnpm escrow:deploy --dry-run` reports what it would do without sending anything, and mainnet
+requires an explicit `--i-mean-mainnet`.
+
+Toolchain note: the machine's asdf shims are broken (`exec: asdf: not found`), so the scarb and
+snforge binaries are called by absolute path — `pnpm escrow:build` / `pnpm escrow:test` wrap that.
+`snforge_scarb_plugin` also needs `allow-prebuilt-plugins`, since it is a Rust proc-macro and there
+is no cargo here.

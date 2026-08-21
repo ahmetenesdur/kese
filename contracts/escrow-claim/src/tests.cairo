@@ -447,3 +447,26 @@ fn two_independent_links_can_coexist() {
     let other: CommitmentEntry = escrow.get_commitment(claim_hash('second-link'));
     assert!(!other.settled, "second link still claimable");
 }
+
+// ---------------------------------------------------------------------------------------------
+// Cross-language agreement
+// ---------------------------------------------------------------------------------------------
+
+#[test]
+fn the_commitment_hash_matches_the_one_typescript_computes() {
+    // The server builds the commitment; the contract verifies it. If starknet.js and Cairo ever
+    // disagree about poseidon over the same two felts, every claim link becomes unclaimable — and
+    // the failure would look like "wrong secret", not "wrong hash function".
+    //
+    // Expected value produced by:
+    //   hash.computePoseidonHashOnElements([
+    //     shortString.encodeShortString('KESE_ESCROW_CLAIM_V1'),
+    //     shortString.encodeShortString('claim-secret-abc'),
+    //   ])
+    // and pinned in packages/core/src/claimlink.test.ts, which asserts the same constant from the
+    // other side. Either language changing its mind breaks one of the two.
+    assert!(
+        claim_hash(CLAIM_SECRET) == 0x333440d178fae15c855d393fa65d309453dabcb249ead3f1bd14aa343edc53c,
+        "poseidon(CLAIM_TAG, 'claim-secret-abc') diverged from starknet.js",
+    );
+}

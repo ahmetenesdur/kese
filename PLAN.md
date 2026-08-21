@@ -36,9 +36,12 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
   - [ ] The on-chain half is gated on the proving URL (#147) — everything else is ready
 
 ## Phase C — Cairo: escrow claim-link (Days 5-7, can run parallel to B)
-- [ ] Adapt the reference escrow + add the **expiry & refund** extension (our contribution) — spec: contracts/escrow-claim/README.md
-- [ ] snforge tests (deposit/claim/double-claim/refund-before-and-after-expiry)
-- [ ] Sepolia deploy → wire into MCP `create_claim_link` (CSPRNG secret, shown once, claim page)
+- [x] Escrow written with the **expiry & refund** extension — the payer holds a refund secret, because the escrow cannot see who is asking (D-030). Also enforces that a deposit is backed by funds not already promised
+- [x] **19 snforge tests**, security guarantees **mutation-verified** — which caught a test that passed for the wrong reason (D-028)
+- [x] Sepolia deploy: `0x1ff4c7f2…3108`, `pool()` verified on-chain (D-032)
+- [x] Claim-link secrets: two independent CSPRNG felts, commitment pinned against Cairo from both sides (D-031); escrow calldata builders tested for positional order
+- [ ] Wire `create_claim_link` end-to-end through the pool invoke — buildable now, but not executable until #147
+- [ ] Claim page (apps/dashboard) — with the honest "the amount is public" notice
 - Fallback: if Cairo stalls → cut claim links, ship "registered-only payments" (contracts field stays empty; acceptable loss)
 
 ## Phase M — Mainnet (Day 8, Aug 28)

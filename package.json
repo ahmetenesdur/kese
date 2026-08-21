@@ -16,7 +16,10 @@
     "smoke:sepolia": "tsx scripts/day1-sepolia-smoke.ts --mode=service",
     "test": "vitest run",
     "keys:gen": "tsx scripts/gen-smoke-keys.ts",
-    "telegram:dry-run": "tsx scripts/telegram-dry-run.ts"
+    "telegram:dry-run": "tsx scripts/telegram-dry-run.ts",
+    "escrow:build": "bash -c \"export PATH=$HOME/.asdf/installs/scarb/2.16.0/bin:$HOME/.asdf/installs/starknet-foundry/0.57.0/bin:$PATH && cd contracts/escrow-claim && scarb build\"",
+    "escrow:test": "bash -c \"export PATH=$HOME/.asdf/installs/scarb/2.16.0/bin:$HOME/.asdf/installs/starknet-foundry/0.57.0/bin:$PATH && cd contracts/escrow-claim && snforge test\"",
+    "escrow:deploy": "tsx scripts/deploy-escrow.ts"
   },
   "dependencies": {
     "@starkware-libs/starknet-privacy-sdk": "file:./vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz",
