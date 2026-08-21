@@ -1114,6 +1114,9 @@ Three independent checks, not one:
 | **Self-hosted prover** | ✅ | ❌ **no attestation** | ✅ | ✅ |
 | Privacy-enabled wallet (Ready, the app) | ✅ | ✅ | ✅ | ✅ |
 
+**The wallet row is not verified end to end** — see D-050. It needs a wallet that implements the
+STRK20 methods, and Braavos on mainnet reportedly does not.
+
 A self-hosted prover gets us `register` — one eligible transaction — and then stops, because
 transfer and withdraw need notes and the only way to create our own notes is a deposit.
 
@@ -1282,3 +1285,44 @@ the browser by a different mechanism anyway: they are never `VITE_*`, so there i
 
 **The pattern, again.** The dangerous thing was not the key in the file. It was that two files
 disagreed and only one was ever read, so the wrong one could sit there indefinitely looking fine.
+
+---
+
+## D-050 — Our wallet assumption was unsourced, and another team just showed why that matters
+
+**Date:** 2026-08-21 · **Phase:** M · **Status:** corrected
+
+D-046 concluded that a self-hosted prover cannot deposit, and that the way through is the owner
+shielding once from a privacy-enabled wallet. Its table listed "Privacy-enabled wallet (Ready, the
+app)" with a tick in every column.
+
+**That tick was never checked.** It is asserted in three more places — `apps/claim/README.md`,
+the comment in `main.ts`, and the user-facing string *"Use Ready to claim this payment"* that a real
+recipient would read. All of it traced back to a planning note in D-002, not to evidence.
+
+**PugarHuda reported the counter-example on #121 today.** Probing Braavos on mainnet (account class
+`0x3957f9f…759bf8a`):
+
+```
+wallet_supportedWalletApi  → failed
+wallet_strk20Balances      → Not implemented
+```
+
+For that wallet both routes close at once — the SDK route on the missing prover URL, the Wallet API
+route on the wallet. And the maintainers confirmed in `f48eabf` that **there is no published list**
+of which wallets implement the methods.
+
+**Ready does appear to be a real answer**, which is luck rather than diligence: Starknet's own
+launch coverage says Ready and Xverse are the wallets that support shielding on the STRK20 stack,
+and that Ready is shipping the Wallet APIs. Sourced now. It was not sourced when it went into a
+table, a README and a message shown to someone about to claim money.
+
+**What it changes for us.** The G1 fallback has a dependency nobody has verified end to end: it
+needs the owner's wallet to implement the STRK20 methods, and the only public data point so far is
+a wallet that does not. Probing costs twenty lines and settles it, so it should be done before the
+plan is relied on, not during it.
+
+**The pattern, and it was ours this time.** All day the failures have been confident claims nobody
+ran. This one was mine, it sat in a decision record as a tick, and it took another team's probe to
+surface it. The claim page still names Ready — correctly, as far as the evidence now goes — but the
+difference between "correct" and "checked" is the entire lesson of this project.
