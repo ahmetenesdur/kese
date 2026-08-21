@@ -46,6 +46,9 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - Fallback: if Cairo stalls → cut claim links, ship "registered-only payments" (contracts field stays empty; acceptable loss). Softer fallback first: escrow pays the claimer by plain ERC-20 transfer instead of an open note — claimer loses privacy, funds stay recoverable.
 
 ## Phase M — Mainnet (Day 8, Aug 28)
+- [x] Mainnet account funded — 115 STRK. Every mainnet preflight check now passes, including the
+      unverified 24 STRK proving reserve. Nothing on the owner's side is outstanding for Phase M;
+      the three transactions are held solely by the missing proving service.
 - [x] Mainnet account deployed — `0x76bdc7a5…14062`, tx `0xe805d13b…171612`, block 13639611,
       gas 0.054 STRK. Armed with `KESE_MAINNET_ARMED`. NOT an eligible transaction: it carries
       zero pool events. Preflight now passes everything except the unverified 24 STRK reserve.
