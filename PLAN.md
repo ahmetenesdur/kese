@@ -46,6 +46,9 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - Fallback: if Cairo stalls → cut claim links, ship "registered-only payments" (contracts field stays empty; acceptable loss). Softer fallback first: escrow pays the claimer by plain ERC-20 transfer instead of an open note — claimer loses privacy, funds stay recoverable.
 
 ## Phase M — Mainnet (Day 8, Aug 28)
+- [x] Mainnet dry run (simulate): pool reachable, `discoverRequirement` → Register, shield compiles and is node-executed — with no deployed account. Day 8 is funding + submitting, not debugging (D-040)
+- [x] Costs read from the chain: pool fee **6 STRK per operation** on mainnet (2 on Sepolia), proof validity 450 blocks. **Owner: budget ~45–50 STRK** — 3 ops ≈ 18 in fees, plus the shielded amounts, gas, account deploy, and the unverified ~24 reserve
+- [x] Eligibility clarified: three hashes each carrying **any** STRK20 pool event — not necessarily deposits (D-040)
 - [ ] Small amounts on mainnet: register + shield + ≥3 pool transactions (hashes into `strk20.json`)
 - [ ] Deploy escrow to mainnet (if ready) → fill `contracts[]`
 - [x] Dashboard (apps/dashboard): balances, limits with a used-budget meter, merged activity (policy attempts + on-chain shields). Loopback-only server so the viewing key stays server-side. On-chain reads use the `Deposit` event's first indexed key — verified against mainnet: 16 deposits, **10 distinct depositors** (filtering by sender would have shown 1)

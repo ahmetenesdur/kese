@@ -771,3 +771,39 @@ Hostile ones inert, the benign one only quoted for its comma.
 
 **Also added:** `memo` now persists in the decision log. Without it the report says an amount left
 and nothing about what for, which is not an audit trail an accountant can use.
+
+### D-040 — Mainnet dry run passes, and the eligibility rule is cheaper than we thought
+
+Ran the smoke test against **mainnet** in simulate mode — read-only plus node simulation, nothing
+submitted, no funds at risk.
+
+**The client works against the real mainnet pool today.** `discoverRequirement` returns `Register`,
+`discoverNotes` returns zero, and a shield **compiles and is executed by the node** — all of this
+while our account is not even deployed on mainnet, because `CallMockProofProvider` simulates with
+validation skipped. So day 8 is a funding-and-submitting exercise, not a debugging session.
+
+Note the pools are *not* the same build: mainnet class `0x67dddd89d80f…`, Sepolia
+`0x56ab118a8a6e…`, both reporting `get_version() = 2.0`. Compatibility is confirmed empirically
+rather than by version string, since our reads exercise many of their view methods.
+
+**Numbers read from the chain, not assumed:**
+
+| | mainnet | sepolia |
+|---|---|---|
+| `get_fee_amount` (per private operation) | **6** | 2 |
+| `get_proof_validity_blocks` | 450 | 450 |
+
+The skill's reference said the mainnet fee was 4 and warned to read it rather than assume. It was
+right to warn: it is 6. It is charged **per operation**, so a full register + shield + transfer +
+withdraw run costs 4× that before gas.
+
+**Eligibility is broader than this repo believed.** `docs/strk20-notes.md` §9 said the check counts
+the `Deposit` event's `user_addr`. The Day-0 guide actually says each hash "must exist, have
+succeeded, and carry a STRK20 pool event" — *any* pool event. The `user_addr` point is a different
+lesson from the same guide (never attribute by transaction sender, because relayers submit). Both
+true; only one is the rule. Corrected in the notes.
+
+**Funding estimate for Phase M**, so it is a decision and not a surprise: three pool operations at
+6 STRK is 18 in fees, plus a few STRK actually shielded, plus gas and the account deploy, plus the
+unverified ~24 STRK proving reserve from #121 if that turns out to be real. **Budget ~45–50 STRK**
+to be comfortable; the guide's own line is "three transactions of a few STRK each".

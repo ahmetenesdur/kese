@@ -94,7 +94,9 @@ State: `transfers.discoverNotes({ tokens: [BigInt(...)] })` ⇒ `Map<token, Note
 - Submission shape: `execute()` ⇒ `{ callAndProof, registry, warnings }`, then
   `account.execute(callAndProof.call, { tip: 0n, resourceBounds, proofFacts: callAndProof.proof.proofFacts, proof: callAndProof.proof.data })`.
 - Re-fetch block number after each `waitForTransaction` when chaining; call `transfers.invalidateProofNonceCache()` where docs indicate.
-- Proof validity window ≈ 450 blocks (~15 min). Proof generation ≈ 29 s on hosted service (show progress in UX; queue jobs).
+- Proof validity window: **450 blocks, confirmed on-chain** for both networks (`get_proof_validity_blocks`). Proof generation ≈ 29 s on hosted service (show progress in UX; queue jobs).
+- **Pool fee per private operation, read from the chain Aug 21** — `get_fee_amount`: **mainnet 6, Sepolia 2**. Do not assume: secondary sources said 4. It is charged per operation, so a
+  register + shield + transfer + withdraw run costs 4× the fee before any gas.
 - v3 txs: `tip: 0n` mandatory.
 - **Gas reserve (UNVERIFIED, upstream #121):** proving reportedly needs ~24 STRK beyond
   `estimateInvokeFee`. Not measured — we have no prover yet. Guarded by
@@ -133,4 +135,14 @@ Deposits/withdrawals public by design · channel-open timing can correlate · di
 
 ## 9. Hackathon submission mechanics
 
-Fork `starkience/strk20-hackathon` → add entry to `registry.json` (repo_url + telegram; name/description/category/inspired_by optional) → PR merged = accepted. Final: `strk20.json` in OUR repo root (≥3 mainnet tx hashes touching pool, contracts[], demo_video, demo_url). "Ideas are not exclusive." "If other sprint projects end up depending on yours, that counts in your favour." Support via GitHub issues.
+Fork `starkience/strk20-hackathon` → add entry to `registry.json` (repo_url + telegram; name/description/category/inspired_by optional) → PR merged = accepted. Final: `strk20.json` in OUR repo root (≥3 mainnet tx hashes, contracts[], demo_video, demo_url). "Ideas are not exclusive." "If other sprint projects end up depending on yours, that counts in your favour." Support via GitHub issues.
+
+**Eligibility, corrected Aug 21.** An earlier version of this file said the check counts the
+`Deposit` event's `user_addr`. That conflated two separate things. The Day-0 guide's actual wording:
+each hash "must exist, have succeeded, and **carry a STRK20 pool event**" — *any* pool event, so a
+registration or a private transfer counts as readily as a shield. The `user_addr` point is a
+different lesson from the same guide: private transactions are submitted by rotating relayers, so
+never attribute activity by transaction sender (see §8). Both are true; only one is the eligibility
+rule.
+
+The guide also says plainly: *"three transactions of a few STRK each satisfy the eligibility rule."*
