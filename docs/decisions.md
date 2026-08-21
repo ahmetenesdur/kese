@@ -331,3 +331,45 @@ become hardcoded.
 **Owner action:** if you want this unblocked sooner, ask on #147 whether the alpha-sepolia prover is
 usable by hackathon teams. That is a question for you to ask, not for us to answer by pointing our
 client at it.
+
+### D-018 — MCP tool names are prefixed `kese_` (deviates from PLAN.md)
+
+`PLAN.md` names the tools `get_balance`, `pay_private`, `withdraw`, … The Anthropic mcp-builder
+skill calls for a service prefix, and here that is a safety argument rather than a style one: an
+agent usually has several MCP servers connected, and a bare `withdraw` or `get_balance` is ambiguous
+across them. The model resolves that ambiguity by guessing, and for a money tool a wrong guess moves
+funds through the wrong wallet.
+
+Shipped as `kese_pay_private`, `kese_withdraw`, `kese_get_balance`, `kese_create_claim_link`,
+`kese_list_activity`, `kese_get_policy`. Reverting is a one-line change if the owner prefers the
+original names.
+
+### D-019 — Tool amounts are whole-token decimal strings, never base units
+
+`amount: "1.5"` means 1.5 STRK. Asking a model to write `1500000000000000000` invites an
+off-by-10^18, and the direction that survives is the one that **overpays** — only the caps would
+stand in the way. The string is parsed as text (never through `Number`, where `0.1 * 1e18` is not
+10^17) and scaled once, at the tool boundary. Scientific notation is rejected by the schema.
+
+### D-020 — Execution idempotency is separate from decision idempotency
+
+The policy engine makes `decide()` idempotent: a replayed key returns the original decision *and*
+the original reservation. That alone is not enough — the caller would then execute the payment a
+second time, since the reservation looks perfectly valid.
+
+`spend()` therefore reads `reservationOutcome(reservationId)` before executing: `committed` returns
+the stored receipt verbatim (`replayed: true`), `released` reports the earlier failure rather than
+quietly retrying. Hard rule 3 is about execution, not just about deciding — and the gap between the
+two is exactly where a double payment lives.
+
+### D-021 — Two build defects found by actually running the server
+
+Neither showed up in tests or typechecks, which is the point of running the thing:
+
+1. **`outDir` lived in `tsconfig.base.json`**, and TypeScript resolves it relative to the file that
+   declares it — so every package emitted into the repo root's `dist/`, each overwriting the last.
+2. **`paths` in the shared base** made every downstream package compile `@kese/core`'s *source*
+   rather than consume its build, which broke `rootDir` and would have shipped duplicate output.
+   Package builds now resolve `@kese/core` through node_modules to `dist`; pnpm orders them
+   correctly because the workspace dependency is declared. The path mapping survives only in
+   `tsconfig.scripts.json` and `vitest.config.ts`, where source resolution is what is wanted.

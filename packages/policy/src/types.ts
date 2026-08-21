@@ -49,6 +49,18 @@ export interface PolicyEngine {
   decide(req: PaymentRequest, cfg: PolicyConfig): Promise<Decision>;
   commitReservation(reservationId: string, receiptJson: string): Promise<void>;
   releaseReservation(reservationId: string): Promise<void>;
+  /**
+   * What became of a reservation.
+   *
+   * `decide()` remembers the DECISION; this reports whether the money actually moved. A caller
+   * replaying an idempotency key gets back a valid reservation from `decide()` and would otherwise
+   * execute the payment a second time — the receipt stored at commit time is what makes execution
+   * idempotent, not just the decision.
+   */
+  reservationOutcome(
+    reservationId: string
+  ): Promise<{ state: "active" | "committed" | "released"; receiptJson?: string } | null>;
+
   /** Audit view: the decision log, newest first. */
   recentDecisions(limit?: number): Promise<DecisionLogEntry[]>;
   close(): void;

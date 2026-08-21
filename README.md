@@ -74,6 +74,33 @@ pnpm test             # unit tests
 Every run prints a preflight, says exactly what is blocked and who can unblock it, and writes
 `smoke-report.json`.
 
+## Connect it to an agent
+
+Build once, then point any MCP client at the server. It talks stdio, because it holds the signing
+key and should not be reachable over a network at all.
+
+```sh
+pnpm build
+```
+
+```json
+{
+  "mcpServers": {
+    "kese": {
+      "command": "node",
+      "args": ["/absolute/path/to/kese/packages/mcp/dist/index.js"],
+      "env": { "KESE_NETWORK": "sepolia" }
+    }
+  }
+}
+```
+
+The server **refuses to start without a spending policy** — a wallet server that came up with no
+limits would be worse than one that failed, because the agent would find it working. Six tools:
+`kese_get_balance`, `kese_get_policy`, `kese_list_activity`, `kese_pay_private`, `kese_withdraw`,
+`kese_create_claim_link`. Every money tool requires an `idempotency_key`, and amounts are whole
+tokens (`"1.5"`), never base units.
+
 ## Honest privacy limitations
 
 Deposits/withdrawals are public by design (privacy starts in-pool). Distinctive amounts and tight timing weaken anonymity — Kese uses round denominations and randomized batching to help. Deposits are compliance-screened (FPI). See `docs/strk20-notes.md` §8.

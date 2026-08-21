@@ -3,6 +3,17 @@
   "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
-  "scripts": { "build": "tsc -p .", "test": "vitest run" },
-  "license": "MIT"
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "vitest run",
+    "start": "tsx src/index.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@kese/core": "workspace:*",
+    "@kese/policy": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.22.0",
+    "zod": "^3.24.0"
+  },
+  "types": "dist/index.d.ts"
 }

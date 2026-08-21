@@ -303,6 +303,42 @@ describe("reservation lifecycle", () => {
   });
 });
 
+describe("reservationOutcome", () => {
+  // Policy remembers the DECISION; the caller still has to know whether the money actually moved.
+  // Without this, a replayed idempotency key sails past the cap check with a valid reservation and
+  // the caller executes the payment a second time.
+  it("returns null for an unknown reservation", async () => {
+    expect(await engine.reservationOutcome("nope")).toBeNull();
+  });
+
+  it("reports an active reservation as not yet executed", async () => {
+    const decision = await engine.decide(request({ amount: 10n }), config);
+    if (decision.kind !== "allow") throw new Error("expected allow");
+    expect(await engine.reservationOutcome(decision.reservationId)).toMatchObject({
+      state: "active",
+    });
+  });
+
+  it("returns the stored receipt once committed", async () => {
+    const decision = await engine.decide(request({ amount: 10n }), config);
+    if (decision.kind !== "allow") throw new Error("expected allow");
+    await engine.commitReservation(decision.reservationId, '{"txHash":"0xabc"}');
+    expect(await engine.reservationOutcome(decision.reservationId)).toEqual({
+      state: "committed",
+      receiptJson: '{"txHash":"0xabc"}',
+    });
+  });
+
+  it("reports a released reservation, so a retry can tell 'failed' from 'never ran'", async () => {
+    const decision = await engine.decide(request({ amount: 10n }), config);
+    if (decision.kind !== "allow") throw new Error("expected allow");
+    await engine.releaseReservation(decision.reservationId);
+    expect(await engine.reservationOutcome(decision.reservationId)).toMatchObject({
+      state: "released",
+    });
+  });
+});
+
 describe("decision log (audit trail)", () => {
   it("records allows and denies alike, newest first", async () => {
     await engine.decide(request({ amount: 10n }), config);

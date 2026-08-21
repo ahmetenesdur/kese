@@ -215,6 +215,14 @@ export function createPolicyEngine(options: PolicyEngineOptions): PolicyEngine {
       });
     },
 
+    async reservationOutcome(reservationId) {
+      const reservation = store.getReservation(reservationId);
+      if (!reservation) return null;
+      return reservation.receipt === null
+        ? { state: reservation.state }
+        : { state: reservation.state, receiptJson: reservation.receipt };
+    },
+
     async recentDecisions(limit = 50): Promise<DecisionLogEntry[]> {
       return store.readDecisions(limit).map((row) => ({
         at: row.at,

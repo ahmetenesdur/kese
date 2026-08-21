@@ -6,16 +6,6 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true,
-    "outDir": "dist",
-    "baseUrl": ".",
-    "paths": {
-      "@kese/core": [
-        "packages/core/src/index.ts"
-      ],
-      "@kese/policy": [
-        "packages/policy/src/index.ts"
-      ]
-    }
+    "declaration": true
   }
 }

@@ -10,5 +10,6 @@
   "license": "MIT",
   "dependencies": {
     "@kese/core": "workspace:*"
-  }
+  },
+  "types": "dist/index.d.ts"
 }

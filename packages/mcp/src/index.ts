@@ -1,0 +1,71 @@
+/**
+ * Kese MCP server — stdio entry point.
+ *
+ * stdio because this runs locally beside the agent and holds the signing key: the wallet should not
+ * be reachable over a network at all. IMPORTANT: stdout is the MCP transport, so nothing here may
+ * print to it. Diagnostics go to stderr.
+ */
+
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { buildWallet, createRedactor, resolveNetwork, resolveNetworkConfig, resolveSigner } from "@kese/core";
+import { createPolicyEngine } from "@kese/policy";
+import { createKeseMcpServer } from "./server.js";
+import { loadPolicyConfig } from "./config.js";
+
+async function main(): Promise<void> {
+  try {
+    process.loadEnvFile(".env");
+  } catch {
+    /* env may come from the process itself */
+  }
+
+  const redact = createRedactor();
+  const errors: string[] = [];
+
+  const net = resolveNetworkConfig();
+  if (!net.value) errors.push(`network config incomplete: ${net.missing.join(", ")}`);
+
+  const signer = resolveSigner();
+  if (!signer.value) errors.push(`signer not configured: ${signer.missing.join(", ")}`);
+
+  const policyConfig = loadPolicyConfig();
+  if (!policyConfig.ok) errors.push(...policyConfig.errors);
+
+  // Fail closed and loudly. A wallet server that starts without limits is worse than one that
+  // does not start: the agent would find it working and spend against no policy at all.
+  if (errors.length > 0 || !net.value || !signer.value || !policyConfig.ok) {
+    console.error("Kese MCP server refusing to start:\n" + errors.map((e) => `  · ${e}`).join("\n"));
+    process.exitCode = 1;
+    return;
+  }
+
+  const { wallet } = buildWallet({
+    net: net.value,
+    signer: signer.value,
+    mode: net.value.provingServiceUrl ? "service" : "simulate",
+    redact,
+  });
+
+  if (!net.value.provingServiceUrl) {
+    console.error(
+      "WARNING: no proving service configured — running in SIMULATE mode. Payments are compiled " +
+        "and checked but NOT submitted. See strk20-hackathon#147."
+    );
+  }
+
+  const server = createKeseMcpServer({
+    policy: createPolicyEngine({ dbPath: process.env.POLICY_DB_PATH ?? "./kese-policy.sqlite" }),
+    wallet,
+    config: policyConfig.config,
+    network: resolveNetwork(),
+    redact,
+  });
+
+  await server.connect(new StdioServerTransport());
+  console.error(`kese-mcp-server ready on ${resolveNetwork()}`);
+}
+
+main().catch((error) => {
+  console.error(`FATAL: ${createRedactor()(error)}`);
+  process.exitCode = 1;
+});

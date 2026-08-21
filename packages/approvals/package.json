@@ -3,6 +3,10 @@
   "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
-  "scripts": { "build": "tsc -p .", "test": "vitest run" },
-  "license": "MIT"
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "vitest run"
+  },
+  "license": "MIT",
+  "types": "dist/index.d.ts"
 }

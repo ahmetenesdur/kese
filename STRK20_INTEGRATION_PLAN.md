@@ -136,7 +136,7 @@ carrying forward:
 technical one. Higher means more concurrent payments but more notes to mint up front; lower means
 cheaper shielding but an agent that stalls sooner. Three matches the demo script.
 
-## 7. Phase B3 — `packages/mcp`: tools
+## 7. Phase B3 — `packages/mcp`: tools ✅ done 2026-08-21
 
 Tools: `get_balance`, `pay_private`, `create_claim_link`, `withdraw`, `list_activity`, `get_policy`.
 
@@ -157,6 +157,15 @@ Non-negotiables, enforced by the tool layer:
   to one address and neither query throws. This applies to the dashboard in Phase M too.
 
 Use the Anthropic `mcp-builder` skill for schema quality and server wiring (CLAUDE.md "Skills").
+
+**Delivered.** Six tools over stdio, 46 tests. Tool names carry a `kese_` prefix (D-018) — with
+several MCP servers connected a bare `withdraw` is ambiguous, and for a money tool the model
+resolving that by guessing is a safety problem. Amounts are whole-token decimal strings (D-019).
+Execution idempotency is enforced separately from decision idempotency (D-020): `spend()` reads the
+reservation's outcome before executing, so a replayed key returns the stored receipt instead of
+paying twice. `list_activity` currently serves Kese's own decision log — which includes denials that
+never reached the chain — and the on-chain view (reading the pool's `Deposit` event and filtering on
+its first indexed key, never the transaction sender) is still to come with the dashboard.
 
 ## 8. Phase B4 — `packages/approvals`: Telegram
 

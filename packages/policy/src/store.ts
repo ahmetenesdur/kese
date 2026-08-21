@@ -111,10 +111,12 @@ export class PolicyStore {
     return rows.reduce((total, row) => total + BigInt(row.amount), 0n);
   }
 
-  getReservation(id: string): { id: string; state: ReservationState } | null {
-    const row = this.db.prepare("SELECT id, state FROM reservations WHERE id = ?").get(id) as
-      | { id: string; state: ReservationState }
-      | undefined;
+  getReservation(
+    id: string
+  ): { id: string; state: ReservationState; receipt: string | null } | null {
+    const row = this.db
+      .prepare("SELECT id, state, receipt FROM reservations WHERE id = ?")
+      .get(id) as { id: string; state: ReservationState; receipt: string | null } | undefined;
     return row ?? null;
   }
 
