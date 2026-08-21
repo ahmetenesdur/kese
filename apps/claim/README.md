@@ -1,8 +1,19 @@
-# claim page
+# the public site
 
-The page a claim-link recipient lands on. Static: it reads the chain directly and has no server of
-its own, because the claim secret rides in the URL **fragment** and a server is a place that could
-log it.
+Two pages, one static deployment — this is the project's public face.
+
+| | |
+|---|---|
+| `/` | The landing page. What Kese is, and a console that answers the way the policy engine does. No chain access, no wallet, nothing to leak — 2.9 kB of JavaScript. |
+| `/claim` | The page a claim-link recipient lands on. |
+
+Static, because the claim secret rides in the URL **fragment** and a server is a place that could
+log it. The claim page moved off `/` when the landing page arrived, which was the only free moment
+to do it: no funded link exists yet, so no live link could break.
+
+**Never put a keyed RPC endpoint in `.env`.** Vite inlines every `VITE_*` value into the public
+bundle. This file held an Alchemy URL with the key in its path until `pnpm build` — which now scans
+its own output — caught it. The deployed site was built from `vercel/env` and was never affected.
 
 ## What is private, and what is not
 

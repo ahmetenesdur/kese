@@ -2,9 +2,25 @@ import { defineConfig } from "vite";
 import { fileURLToPath } from "node:url";
 
 export default defineConfig({
-  // Static output — the claim page reads the chain directly and has no server of its own. Nothing
-  // to run means nothing that could log the secret in the URL fragment.
-  build: { outDir: "dist", target: "es2022" },
+  // Two pages, one deployment.
+  //
+  //   /       the landing page — what Kese is, and a console that answers the way the policy
+  //           engine does. No chain access, no wallet, nothing to leak.
+  //   /claim  the recipient's page. Its secret rides in the URL fragment, which is why this whole
+  //           app is static: a server is a place that could log it.
+  //
+  // The claim page moved off `/` deliberately, and now was the only free moment to do it — no
+  // funded link exists yet, so no live link can break.
+  build: {
+    outDir: "dist",
+    target: "es2022",
+    rollupOptions: {
+      input: {
+        index: fileURLToPath(new URL("index.html", import.meta.url)),
+        claim: fileURLToPath(new URL("claim.html", import.meta.url)),
+      },
+    },
+  },
   resolve: {
     alias: {
       // Deep aliases only. Mapping the barrel would let a stray `@kese/core` import drag the SDK

@@ -245,7 +245,7 @@ tarball).
 | [`packages/mcp`](packages/mcp) | the MCP server and its six tools |
 | [`packages/approvals`](packages/approvals) | Telegram human-in-the-loop |
 | [`contracts/escrow-claim`](contracts/escrow-claim) | Cairo `privacy_invoke` helper + refund extension |
-| [`apps/claim`](apps/claim) | recipient claim page (static, the public demo) |
+| [`apps/claim`](apps/claim) | the public site — landing page at `/`, recipient claim page at `/claim` |
 | [`apps/dashboard`](apps/dashboard) | owner view + CSV spend report (loopback only) |
 | [`docs/`](docs) | [protocol notes](docs/strk20-notes.md) · [architecture](docs/architecture.md) · [decision log](docs/decisions.md) |
 | [`CLAUDE.md`](CLAUDE.md) · [`PLAN.md`](PLAN.md) | build guide for coding agents · the 10-day plan |

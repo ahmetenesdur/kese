@@ -60,28 +60,19 @@ function render(state: ClaimState, sample = false): void {
 
   switch (state.kind) {
     case "no-link":
-      // Two audiences reach this screen: a recipient who copied half a link, and someone opening
-      // the project's public demo URL. The recipient's instruction stays first because their need
-      // is urgent; the explanation follows for everyone else, rather than leaving them on a page
-      // that reads as "you are in the wrong place".
+      // Two audiences reach this screen: a recipient who copied half a link, and someone who
+      // arrived from the landing page. The recipient's instruction comes first because their need
+      // is urgent; explaining the product is the landing page's job now, not this one's.
       content.innerHTML = `
         <p class="sub">This page needs a claim link. Open the full link you were sent — it ends
           with <code>#</code> followed by a long code.</p>
         <div class="about">
-          <p><strong>What is this?</strong> Kese lets an AI agent spend from a
-            <a href="https://strk20.starknet.io" rel="noopener">STRK20</a> privacy pool on Starknet,
-            under limits its owner sets. When the agent pays someone who has never used the pool, it
-            sends a link like this one instead — the money waits in an escrow contract until they
-            collect it, and returns to the sender if nobody does.</p>
-          <p>You claim with your own wallet. This page has no server, and the code in the link is
-            never transmitted anywhere.</p>
           <p class="samples">See the screens a recipient gets:
             <a href="?demo=claimable">waiting</a> ·
             <a href="?demo=settled">collected</a> ·
             <a href="?demo=expired">expired</a> ·
             <a href="?demo=unknown">not found</a></p>
-          <p class="repo"><a href="https://github.com/ahmetenesdur/kese" rel="noopener">Source code
-            and documentation on GitHub</a></p>
+          <p class="repo"><a href="/">What is Kese? →</a></p>
         </div>`;
       return;
 

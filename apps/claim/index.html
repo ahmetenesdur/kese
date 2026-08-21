@@ -3,98 +3,404 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Claim your payment — Kese</title>
-    <!--
-      No analytics, no fonts, no third-party anything. The URL fragment carries a bearer secret,
-      and every extra script on this page is another party that could read it.
-    -->
-    <meta name="referrer" content="no-referrer" />
+    <title>Kese — private money for AI agents</title>
+    <meta name="description" content="A policy-guarded spending account for AI agents on Starknet's STRK20 privacy pool. Private payments, hard limits, human approval above a threshold." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Inter+Tight:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" />
     <style>
+      /*
+        There is no brand colour on this page, and that is the design.
+        Kese is a gate: every payment gets one of three answers. So the only colours here are
+        those answers — allow, ask, deny — and everything else is ground, line and type. A fourth,
+        decorative accent would compete with the one thing the palette is for.
+      */
       :root {
-        color-scheme: dark;
-        --bg: #0b0d12;
-        --panel: #141822;
-        --line: #232a38;
-        --text: #e8ecf4;
-        --muted: #98a2b8;
-        --accent: #7c8cff;
-        --warn: #f0b429;
+        --ground: #08090b;
+        --raise: #0e1014;
+        --raise-2: #14171d;
+        --line: #1c1f26;
+        --line-2: #2a2e37;
+        --text: #e9ecf1;
+        --text-2: #9aa1ae;
+        --text-3: #666d7a;
+
+        --allow: #5fbf8f;
+        --ask: #dfae5c;
+        --deny: #e0705c;
+
+        --display: "Familjen Grotesk", system-ui, sans-serif;
+        --body: "Inter Tight", system-ui, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
       }
+
       * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+      }
+
       body {
         margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: 1.5rem;
-        background: var(--bg);
+        background: var(--ground);
         color: var(--text);
-        font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-family: var(--body);
+        font-size: 16px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
       }
-      main { width: 100%; max-width: 30rem; }
-      .card {
-        background: var(--panel);
+
+      a { color: inherit; }
+      :focus-visible { outline: 2px solid var(--text); outline-offset: 3px; border-radius: 2px; }
+
+      /* Present for screen readers, absent for everyone else. */
+      .visually-hidden {
+        position: absolute; width: 1px; height: 1px;
+        margin: -1px; padding: 0; border: 0;
+        clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+      }
+
+      .shell { max-width: 68rem; margin: 0 auto; padding: 0 1.5rem; }
+
+      /* ── top bar ─────────────────────────────────────────── */
+      .bar {
+        position: sticky; top: 0; z-index: 10;
+        background: color-mix(in oklab, var(--ground) 86%, transparent);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--line);
+      }
+      .bar .shell { display: flex; align-items: center; justify-content: space-between; height: 3.5rem; }
+      .wordmark { font-family: var(--display); font-weight: 700; font-size: 1.05rem; letter-spacing: -.02em; }
+      .wordmark span { color: var(--text-3); font-weight: 500; }
+      .bar nav { display: flex; gap: 1.5rem; font-size: .875rem; color: var(--text-2); }
+      .bar nav a { text-decoration: none; }
+      .bar nav a:hover { color: var(--text); }
+
+      /* ── hero ────────────────────────────────────────────── */
+      .hero { padding: 5rem 0 3rem; }
+      .eyebrow {
+        font-family: var(--mono); font-size: .75rem; letter-spacing: .12em;
+        text-transform: uppercase; color: var(--text-3); margin: 0 0 1.25rem;
+      }
+      h1 {
+        font-family: var(--display); font-weight: 700;
+        font-size: clamp(2rem, 7vw, 4rem); line-height: 1.02; letter-spacing: -.035em;
+        margin: 0; text-wrap: balance; max-width: 18ch;
+      }
+      h1 em { font-style: normal; color: var(--text-3); }
+      .lede { margin: 1.5rem 0 0; font-size: 1.1rem; color: var(--text-2); max-width: 52ch; }
+
+      /* ── the console: this page's one bold element ───────── */
+      .console {
+        margin: 3rem 0 0;
+        background: var(--raise);
         border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 1.75rem;
+        border-radius: 12px;
+        overflow: hidden;
       }
-      h1 { margin: 0 0 .25rem; font-size: 1.35rem; letter-spacing: -0.01em; }
-      .sub { margin: 0 0 1.5rem; color: var(--muted); font-size: .9rem; }
-      .amount { font-size: 2.25rem; font-weight: 650; letter-spacing: -0.02em; margin: .5rem 0; }
-      .row {
-        display: flex; justify-content: space-between; gap: 1rem;
-        padding: .6rem 0; border-top: 1px solid var(--line);
-        font-size: .875rem;
+      .console-head {
+        display: flex; flex-wrap: wrap; align-items: center; gap: .75rem;
+        padding: 1.1rem 1.25rem;
+        border-bottom: 1px solid var(--line);
+        font-family: var(--mono); font-size: .875rem;
       }
-      .row span:first-child { color: var(--muted); }
-      .row code { font-size: .8rem; word-break: break-all; }
-      button {
-        width: 100%; margin-top: 1.25rem; padding: .8rem 1rem;
-        font: inherit; font-weight: 600; color: #0b0d12;
-        background: var(--accent); border: 0; border-radius: 9px; cursor: pointer;
+      .console-head .who { color: var(--text-3); }
+      .amount-wrap { position: relative; display: inline-flex; align-items: baseline; gap: .4rem; }
+      input[type="number"] {
+        width: 5.5rem; padding: .3rem .5rem;
+        font-family: var(--mono); font-size: 1rem; font-weight: 500;
+        color: var(--text); background: var(--raise-2);
+        border: 1px solid var(--line-2); border-radius: 6px;
+        -moz-appearance: textfield;
       }
-      button:disabled { opacity: .5; cursor: not-allowed; }
-      .notice {
-        margin-top: 1.25rem; padding: .85rem 1rem;
-        background: rgba(240, 180, 41, .09);
-        border: 1px solid rgba(240, 180, 41, .3);
-        border-radius: 9px;
-        font-size: .825rem; color: #f5d894;
+      input[type="number"]::-webkit-outer-spin-button,
+      input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+      input[type="number"]:focus { border-color: var(--text-3); }
+
+      .presets { display: flex; gap: .4rem; margin-left: auto; }
+      .presets button {
+        font-family: var(--mono); font-size: .78rem;
+        color: var(--text-2); background: transparent;
+        border: 1px solid var(--line-2); border-radius: 999px;
+        padding: .25rem .65rem; cursor: pointer;
       }
-      .notice strong { color: var(--warn); }
-      .status { margin-top: 1rem; font-size: .875rem; color: var(--muted); min-height: 1.2em; }
-      .sample {
-        margin: 0 0 1.25rem; padding: .7rem .9rem;
-        background: rgba(124, 140, 255, .1);
-        border: 1px dashed rgba(124, 140, 255, .5);
-        border-radius: 9px;
-        font-size: .8rem; color: #c3cbff;
+      .presets button:hover { color: var(--text); border-color: var(--text-3); }
+      .presets button[aria-pressed="true"] { color: var(--ground); background: var(--text); border-color: var(--text); }
+
+      .rules { list-style: none; margin: 0; padding: .5rem 0; }
+      .rule {
+        display: grid; grid-template-columns: 1.75rem 1fr auto;
+        align-items: baseline; gap: .75rem;
+        padding: .6rem 1.25rem;
+        font-size: .9rem;
+        opacity: 0; transform: translateY(-2px);
+        animation: settle .22s ease forwards;
       }
-      .sample strong { color: var(--accent); }
-      .about {
-        margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
-        font-size: .85rem; color: var(--muted);
+      @keyframes settle { to { opacity: 1; transform: none; } }
+      .rule .mark { font-family: var(--mono); font-size: .95rem; line-height: 1; }
+      .rule .detail { font-family: var(--mono); font-size: .8rem; color: var(--text-3); text-align: right; }
+      .rule.pass .mark { color: var(--allow); }
+      .rule.fail .mark { color: var(--deny); }
+      .rule.fail.ask .mark { color: var(--ask); }
+      .rule.fail .label { color: var(--text); }
+      .rule .label { color: var(--text-2); }
+      .rule .code { font-family: var(--mono); font-size: .72rem; color: var(--deny); }
+
+      .verdict {
+        display: flex; flex-wrap: wrap; align-items: center; gap: .75rem;
+        padding: 1rem 1.25rem;
+        border-top: 1px solid var(--line);
+        background: var(--raise-2);
       }
-      .about p { margin: 0 0 .8rem; }
-      .about strong { color: var(--text); }
-      .about .samples, .about .repo { font-size: .8rem; }
-      .about .repo { margin-bottom: 0; }
-      .foot { margin-top: 1.25rem; font-size: .75rem; color: var(--muted); text-align: center; }
-      a { color: var(--accent); }
+      .chip {
+        font-family: var(--mono); font-size: .72rem; font-weight: 500;
+        letter-spacing: .1em; text-transform: uppercase;
+        padding: .3rem .6rem; border-radius: 5px;
+      }
+      .chip.allow { color: var(--allow); background: color-mix(in oklab, var(--allow) 14%, transparent); }
+      .chip.ask   { color: var(--ask);   background: color-mix(in oklab, var(--ask) 14%, transparent); }
+      .chip.deny  { color: var(--deny);  background: color-mix(in oklab, var(--deny) 14%, transparent); }
+      .verdict p { margin: 0; font-size: .95rem; color: var(--text-2); }
+
+      .console-foot {
+        padding: .8rem 1.25rem; border-top: 1px solid var(--line);
+        font-size: .8rem; color: var(--text-3);
+      }
+
+      /* ── sections ────────────────────────────────────────── */
+      section { padding: 4.5rem 0; border-top: 1px solid var(--line); }
+      h2 {
+        font-family: var(--display); font-weight: 600;
+        font-size: clamp(1.5rem, 3.5vw, 2rem); letter-spacing: -.025em;
+        margin: 0 0 .75rem; text-wrap: balance;
+      }
+      .sub { margin: 0 0 2.5rem; color: var(--text-2); max-width: 56ch; }
+
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      .cell { background: var(--ground); padding: 1.5rem; }
+      .cell h3 { font-family: var(--display); font-weight: 600; font-size: 1rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
+      .cell p { margin: 0; font-size: .9rem; color: var(--text-2); }
+
+      .facts { width: 100%; border-collapse: collapse; font-size: .875rem; }
+      .facts th, .facts td { text-align: left; padding: .8rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+      .facts th { font-family: var(--mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); font-weight: 400; white-space: nowrap; padding-right: 2rem; }
+      .facts td { color: var(--text-2); }
+      .facts tr:last-child th, .facts tr:last-child td { border-bottom: 0; }
+      .facts a { color: var(--text); text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+      code { font-family: var(--mono); font-size: .85em; color: var(--text); }
+
+      .limits { display: flex; flex-direction: column; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+      .limits li { display: grid; grid-template-columns: auto 1fr; gap: .9rem; align-items: baseline; }
+      .limits .tag {
+        font-family: var(--mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+        padding: .25rem .5rem; border-radius: 4px; white-space: nowrap;
+        color: var(--deny); background: color-mix(in oklab, var(--deny) 12%, transparent);
+      }
+      .limits .tag.part { color: var(--ask); background: color-mix(in oklab, var(--ask) 12%, transparent); }
+      .limits p { margin: 0; color: var(--text-2); font-size: .95rem; }
+      .limits strong { color: var(--text); font-weight: 500; }
+
+      footer { border-top: 1px solid var(--line); padding: 2.5rem 0 4rem; color: var(--text-3); font-size: .85rem; }
+      footer .shell { display: flex; flex-wrap: wrap; gap: 1rem 2rem; justify-content: space-between; }
+      footer a { text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+
+      @media (max-width: 34rem) {
+        .rule { grid-template-columns: 1.5rem 1fr; }
+        .rule .detail { grid-column: 2; text-align: left; }
+        .presets { margin-left: 0; width: 100%; }
+        /* The tagline is the first thing to go: it wrapped the bar onto two lines and pushed the
+           navigation off the top of the page, which costs more than the words are worth here. */
+        .wordmark span { display: none; }
+        .bar nav { gap: 1rem; font-size: .82rem; }
+        .hero { padding: 3rem 0 2rem; }
+        section { padding: 3rem 0; }
+      }
     </style>
   </head>
   <body>
-    <main>
-      <div class="card">
-        <h1>Claim your payment</h1>
-        <p class="sub">Paid privately through STRK20 · powered by Kese</p>
-        <div id="content">Loading…</div>
+    <header class="bar">
+      <div class="shell">
+        <span class="wordmark">kese <span>· private money for agents</span></span>
+        <nav>
+          <a href="#built">What's built</a>
+          <a href="#limits">Limits</a>
+          <a href="https://github.com/ahmetenesdur/kese" rel="noopener">GitHub ↗</a>
+        </nav>
       </div>
-      <p class="foot">
-        Your claim link is in this page's address, after the <code>#</code>. It is never sent to any
-        server. Anyone who has it can claim this payment — treat it like cash.
-      </p>
+    </header>
+
+    <main>
+      <div class="shell hero">
+        <p class="eyebrow">Starknet · STRK20 privacy pool</p>
+        <h1>Your agent gets the pouch. <em>Never the vault.</em></h1>
+        <p class="lede">
+          Kese gives an AI agent a spending account it cannot argue with. Payments are private —
+          the pool hides sender, recipient and amount — and every one of them passes a
+          deterministic gate first.
+        </p>
+
+        <!--
+          The signature element. Not a screenshot and not a video: the rules below are the ones in
+          packages/policy/src/engine.ts, evaluated in the same order, so you can watch which one
+          decides. Unit-tested against that order in src/policy-console.test.ts.
+        -->
+        <div class="console">
+          <div class="console-head">
+            <span class="who">agent asks to pay</span>
+            <span class="amount-wrap">
+              <label class="visually-hidden" for="amount">Amount in STRK</label>
+              <input id="amount" type="number" min="0" step="0.5" value="1" />
+              <span style="color: var(--text-3)">STRK</span>
+            </span>
+            <span class="who">to a supplier</span>
+            <span class="presets" role="group" aria-label="Example amounts">
+              <button type="button" data-amount="1">1</button>
+              <button type="button" data-amount="5">5</button>
+              <button type="button" data-amount="20">20</button>
+            </span>
+          </div>
+
+          <ul class="rules" id="rules"></ul>
+
+          <div class="verdict" id="verdict"></div>
+
+          <p class="console-foot">
+            Owner's policy: 10 STRK per payment · 50 per rolling 24 hours · asks above 2 · 12
+            already spent today.
+          </p>
+        </div>
+      </div>
+
+      <section id="built">
+        <div class="shell">
+          <h2>What a payment actually goes through</h2>
+          <p class="sub">
+            The gate is the product. Everything else exists to make its answer safe to act on.
+          </p>
+          <div class="grid">
+            <div class="cell">
+              <h3>Caps are absolute</h3>
+              <p>
+                The per-payment cap is checked before the approval threshold, so there is no dialog
+                that lets an owner wave one through. A limit you can approve past is a suggestion.
+              </p>
+            </div>
+            <div class="cell">
+              <h3>A retry is not a second payment</h3>
+              <p>
+                Every money tool takes an idempotency key. Models retry tool calls; the same key
+                returns the original receipt and executes nothing.
+              </p>
+            </div>
+            <div class="cell">
+              <h3>Concurrency reserves first</h3>
+              <p>
+                Parallel payments reserve against the budget inside one database transaction before
+                anything is signed, so two payments that each fit cannot both pass when only one does.
+              </p>
+            </div>
+            <div class="cell">
+              <h3>The keys stay out of the model</h3>
+              <p>
+                The signing key and viewing key live in server environment only. Every error crosses
+                a redactor before it can become a log line or a tool result.
+              </p>
+            </div>
+            <div class="cell">
+              <h3>Anyone can be paid</h3>
+              <p>
+                The pool only pays registered recipients, so a Cairo escrow issues claim links for
+                everyone else. Unclaimed funds return to the payer after an expiry block.
+              </p>
+            </div>
+            <div class="cell">
+              <h3>Private from the world, not from you</h3>
+              <p>
+                The owner's viewing key produces a full spend report, including the payments policy
+                refused — those never reach the chain and are exactly what an audit is for.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="shell">
+          <h2>On chain, today</h2>
+          <p class="sub">Deployed and verified. Read them yourself.</p>
+          <table class="facts">
+            <tbody>
+              <tr>
+                <th scope="row">Escrow, mainnet</th>
+                <td><a href="https://voyager.online/contract/0x4b41a5648796ce290fcba3f5630a66f9fe737f58de6b9589a5d780a2c4999f3" rel="noopener"><code>0x4b41a564…2c4999f3</code></a> — its <code>pool()</code> returns the live STRK20 pool</td>
+              </tr>
+              <tr>
+                <th scope="row">Escrow, Sepolia</th>
+                <td><code>0x1ff4c7f2…aa3cf3108</code> — read live by the claim page on every visit</td>
+              </tr>
+              <tr>
+                <th scope="row">Claim page</th>
+                <td><a href="/claim">See what a recipient gets →</a></td>
+              </tr>
+              <tr>
+                <th scope="row">Source</th>
+                <td><a href="https://github.com/ahmetenesdur/kese" rel="noopener">github.com/ahmetenesdur/kese</a> — MIT, 354 tests, a decision log for every non-obvious call</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="limits">
+        <div class="shell">
+          <h2>What this does not hide</h2>
+          <p class="sub">
+            A privacy product that overstates itself is the easiest way to get someone hurt. So,
+            plainly:
+          </p>
+          <ul class="limits">
+            <li>
+              <span class="tag">Public</span>
+              <p>
+                <strong>Money entering and leaving the pool.</strong> Privacy starts inside it.
+                Kese has no shield-and-pay shortcut, ever — bundling a deposit with the payment it
+                funds publishes “this address deposited exactly X” right next to it.
+              </p>
+            </li>
+            <li>
+              <span class="tag">Public</span>
+              <p>
+                <strong>Deposits are compliance-screened.</strong> The pool verifies a screening
+                signature on-chain before accepting one.
+              </p>
+            </li>
+            <li>
+              <span class="tag part">Partly</span>
+              <p>
+                <strong>Claim links show the amount.</strong> The escrow pays through an open note,
+                which carries its value in the clear. The recipient stays hidden; the sum does not.
+              </p>
+            </li>
+            <li>
+              <span class="tag part">Partly</span>
+              <p>
+                <strong>Distinctive amounts and tight timing weaken anonymity.</strong> Round
+                denominations help. A payment of 137.42 is still a payment of 137.42.
+              </p>
+            </li>
+          </ul>
+        </div>
+      </section>
     </main>
-    <script type="module" src="/src/main.ts"></script>
+
+    <footer>
+      <div class="shell">
+        <span>Kese — built for the STRK20 Private Sprint. MIT.</span>
+        <span><a href="https://github.com/ahmetenesdur/kese" rel="noopener">Source</a> · <a href="/claim">Claim page</a></span>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/landing.ts"></script>
   </body>
 </html>
