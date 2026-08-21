@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS decisions_log (
   token       TEXT    NOT NULL,
   amount      TEXT    NOT NULL,
   recipient   TEXT,
+  memo        TEXT,
   decision    TEXT    NOT NULL,
   code        TEXT
 );
@@ -150,8 +151,8 @@ export class PolicyStore {
   }): void {
     this.db
       .prepare(
-        "INSERT INTO decisions_log (at, key, agent_id, kind, token, amount, recipient, decision, code)" +
-          " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO decisions_log (at, key, agent_id, kind, token, amount, recipient, memo, decision, code)" +
+          " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
       )
       .run(
         entry.at,
@@ -161,6 +162,7 @@ export class PolicyStore {
         entry.request.token,
         entry.request.amount.toString(10),
         entry.request.recipient ?? null,
+        entry.request.memo ?? null,
         entry.decision,
         entry.code ?? null
       );
@@ -174,6 +176,7 @@ export class PolicyStore {
     token: string;
     amount: string;
     recipient: string | null;
+    memo: string | null;
     decision: string;
     code: string | null;
   }[] {

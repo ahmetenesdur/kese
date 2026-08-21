@@ -738,3 +738,36 @@ filter been reading the sender, that count would have been 1 — which is exactl
 the escrow pays through an *open* note, which carries its value in plaintext. The recipient stays
 hidden, the amount does not — so `amount-public` is its own level. Caught by reading the rendered
 table rather than by a test, which is now the fourth or fifth time that has been the case today.
+
+### D-039 — The spend report is a spreadsheet attack surface
+
+The CSV export is where "privacy from the world, not from you" is actually honoured — the owner
+hands it to an accountant. Opening it in a spreadsheet changes the threat model completely.
+
+A cell beginning `=`, `+`, `-` or `@` is a **formula** in Excel, Sheets and LibreOffice. Two fields
+in this report are caller-supplied: the memo, written by an LLM, and the counterparty address. And
+the LLM writes the memo from whatever it was told — so a payment request is a delivery vehicle for
+a formula that runs on the owner's own machine, at the moment they open their own accounts.
+
+Worse, **the payment does not have to succeed**. Refused attempts are recorded too, which is the
+whole point of an audit trail — so a request the policy engine rejects still lands its memo in the
+file.
+
+Every caller-supplied field is therefore **neutralised**, not merely escaped: escaping fixes commas
+and quotes and does nothing about formulas. A leading apostrophe is the conventional fix —
+spreadsheets read it as "this is text", show the rest verbatim, and strip it on display. Neutralised
+rather than stripped, deliberately: a memo that tried to inject a formula is exactly the thing the
+owner should be able to see.
+
+Verified end to end by seeding two hostile memos and downloading the file:
+
+```
+'@SUM(A1:A99)
+"'=HYPERLINK(""http://evil.example/steal"",""Refund pending"")"
+"invoice 4471, Acme hosting"
+```
+
+Hostile ones inert, the benign one only quoted for its comma.
+
+**Also added:** `memo` now persists in the decision log. Without it the report says an amount left
+and nothing about what for, which is not an audit trail an accountant can use.

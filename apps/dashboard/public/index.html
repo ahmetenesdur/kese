@@ -84,7 +84,7 @@
       </section>
 
       <section>
-        <h2>Activity</h2>
+        <h2>Activity <a href="/report.csv" style="float:right;font-size:.8rem;font-weight:400;color:var(--accent)">Download CSV</a></h2>
         <div class="scroll">
           <table>
             <thead>
@@ -98,6 +98,12 @@
           including refusals, which never reach the chain. <em>Chain</em> rows are what settled.
           Only shields can be read back from the chain: the pool encrypts who initiated a
           withdrawal, so unshields appear here from Kese's own record and not from Starknet.
+        </p>
+        <p class="note">
+          The CSV is the same record, for an accountant. Notes written by the agent are exported
+          with a leading apostrophe when they begin with <code>=</code>, <code>+</code>,
+          <code>-</code> or <code>@</code> — spreadsheets would otherwise run them as formulas, and
+          the agent writes those notes from whatever it was told.
         </p>
       </section>
     </div>

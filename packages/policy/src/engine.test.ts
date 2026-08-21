@@ -339,6 +339,20 @@ describe("reservationOutcome", () => {
   });
 });
 
+describe("decision log — memo", () => {
+  it("records the memo, so an audit report can say what a payment was for", async () => {
+    await engine.decide(request({ amount: 10n, memo: "invoice 4471, Acme hosting" }), config);
+    const [entry] = await engine.recentDecisions(1);
+    expect(entry!.memo).toBe("invoice 4471, Acme hosting");
+  });
+
+  it("leaves the memo undefined when none was given", async () => {
+    await engine.decide(request({ amount: 10n }), config);
+    const [entry] = await engine.recentDecisions(1);
+    expect(entry!.memo).toBeUndefined();
+  });
+});
+
 describe("remainingDaily", () => {
   // The owner approves on a phone, in seconds. "60 STRK, and 190 left today" is a decision;
   // "approve?" is a reflex.

@@ -26,6 +26,7 @@ import {
 import { createPolicyEngine } from "@kese/policy";
 import { loadPolicyConfig } from "@kese/mcp";
 import { buildSummary, mergeActivity } from "./summary.js";
+import { toCsv } from "./report.js";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.DASHBOARD_PORT ?? 5184);
@@ -103,6 +104,32 @@ async function main(): Promise<void> {
             account: signer.value!.address,
           });
           res.writeHead(out.status, out.headers).end(out.body);
+          return;
+        }
+
+        if (url.pathname === "/report.csv") {
+          const decisions = await policy.recentDecisions(1000);
+          const csv = toCsv(
+            mergeActivity({ decisions, shields: [], network }).map((e) => ({
+              at: new Date(e.at).toISOString(),
+              source: e.source,
+              kind: e.kind,
+              amount: e.amount,
+              symbol: e.symbol,
+              counterparty: e.counterparty,
+              outcome: e.outcome,
+              reason: e.reason,
+              visibility: e.visibility,
+              memo: e.memo,
+              reference: e.reference,
+            }))
+          );
+          res
+            .writeHead(200, {
+              "content-type": "text/csv; charset=utf-8",
+              "content-disposition": `attachment; filename="kese-spend-${network}.csv"`,
+            })
+            .end(csv);
           return;
         }
 

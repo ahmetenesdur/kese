@@ -74,6 +74,8 @@ export interface ActivityEntry {
   amount: string;
   symbol: string;
   counterparty?: string;
+  /** What the payment was for. UNTRUSTED — an LLM writes it (see report.ts). */
+  memo?: string;
   /** The verdict: allow / deny / needs_approval / settled. Drives colour. */
   outcome: string;
   /** Which rule fired, when there was one. Drives the explanation next to it. */
@@ -113,6 +115,7 @@ export function mergeActivity(input: ActivityInput): ActivityEntry[] {
     amount: formatTokenAmount(entry.amount),
     symbol: tokenSymbol(entry.token, input.network),
     counterparty: entry.recipient,
+    memo: entry.memo,
     // Both, deliberately. The verdict colours the row; the code explains it. Collapsing them into
     // one field forces the UI to choose between "is this bad" and "why", and it needs both.
     outcome: entry.decision,

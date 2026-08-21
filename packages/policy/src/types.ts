@@ -77,6 +77,8 @@ export interface DecisionLogEntry {
   token: Address;
   amount: bigint;
   recipient?: Address;
+  /** Free text from the caller — what the payment was for. UNTRUSTED: an LLM writes this. */
+  memo?: string;
   decision: Decision["kind"];
   code?: DenyCode;
 }

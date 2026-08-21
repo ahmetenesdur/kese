@@ -240,6 +240,7 @@ export function createPolicyEngine(options: PolicyEngineOptions): PolicyEngine {
         token: row.token,
         amount: BigInt(row.amount),
         recipient: row.recipient ?? undefined,
+        memo: row.memo ?? undefined,
         decision: row.decision as Decision["kind"],
         code: (row.code ?? undefined) as DenyCode | undefined,
       }));
