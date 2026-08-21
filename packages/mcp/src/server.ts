@@ -200,6 +200,18 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
       inputSchema: {
         limit: z.number().int().min(1).max(100).default(20).describe("Maximum entries to return."),
       },
+      /**
+       * No `memo`, deliberately.
+       *
+       * A memo is free text an LLM wrote, usually repeating whatever the person asking for the
+       * payment said. This tool's result goes straight back into a model's context as trusted
+       * audit data, so returning memos would let one payment request plant instructions that a
+       * later turn reads as fact — the agent's own log becoming an injection surface.
+       *
+       * The owner still sees every memo: the dashboard reads the same rows, and the CSV export
+       * neutralises them for spreadsheets. A human can judge a suspicious note; a model reading
+       * its own history cannot.
+       */
       outputSchema: {
         count: z.number(),
         entries: z.array(
