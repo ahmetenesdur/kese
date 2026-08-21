@@ -17,17 +17,17 @@
 import { readFileSync, existsSync } from "node:fs";
 import { Account, RpcProvider, hash } from "starknet";
 import { createRedactor, resolveNetwork, resolveNetworkConfig, resolveSigner } from "../packages/core/src/index.js";
+import { envSearchPath, loadDotEnv } from "../packages/core/src/env.js";
 
 const ARTIFACT_DIR = "contracts/escrow-claim/target/dev";
 const SIERRA = `${ARTIFACT_DIR}/escrow_claim_EscrowClaim.contract_class.json`;
 const CASM = `${ARTIFACT_DIR}/escrow_claim_EscrowClaim.compiled_contract_class.json`;
 
 async function main(): Promise<void> {
-  try {
-    process.loadEnvFile(".env");
-  } catch {
-    /* env may already be set */
-  }
+  // Climb to the .env instead of assuming the cwd holds it. These are run from the repo root
+  // today, so this changes nothing now — it stops the same trap that cost an hour in the MCP
+  // server and the dashboard from being re-set here later (D-041).
+  loadDotEnv({ from: envSearchPath(import.meta.url) });
   const redact = createRedactor();
   const dryRun = process.argv.includes("--dry-run");
 
@@ -53,7 +53,10 @@ async function main(): Promise<void> {
 
   // A deploy is irreversible and spends real funds. Testnet is the default everywhere else in this
   // repo; mainnet has to be asked for explicitly, at the moment it happens.
-  if (resolveNetwork() === "mainnet" && !process.argv.includes("--i-mean-mainnet")) {
+  // `--dry-run` is exempt: it sends nothing, and refusing it meant the only way to see what a
+  // mainnet deploy would do was to arm the real one first — which is backwards for a check whose
+  // entire purpose is to be run before you commit.
+  if (resolveNetwork() === "mainnet" && !dryRun && !process.argv.includes("--i-mean-mainnet")) {
     console.error(
       "✗ KESE_NETWORK is mainnet. Re-run with --i-mean-mainnet if that is deliberate."
     );

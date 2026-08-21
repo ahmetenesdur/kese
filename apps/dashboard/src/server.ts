@@ -13,7 +13,6 @@
 
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { RpcProvider } from "starknet";
 import {
@@ -22,6 +21,7 @@ import {
   envSearchPath,
   loadDotEnv,
   readShields,
+  resolveStatePath,
   resolveNetwork,
   resolveNetworkConfig,
   resolveSigner,
@@ -72,12 +72,11 @@ async function main(): Promise<void> {
   }
 
   const network = resolveNetwork();
-  // Same reason, and it matters more here: a relative path opened from a different directory is
-  // not an error, it is an empty database — which renders as an agent that has never spent anything.
-  const projectRoot = env.path ? resolve(env.path, "..") : process.cwd();
-  const configuredDb = process.env.POLICY_DB_PATH ?? "./kese-policy.sqlite";
+  // Same rule as the MCP server, from the same place: a relative path opened from a different
+  // directory is not an error, it is an empty database — which renders as an agent that has never
+  // spent anything.
   const policy = createPolicyEngine({
-    dbPath: isAbsolute(configuredDb) ? configuredDb : resolve(projectRoot, configuredDb),
+    dbPath: resolveStatePath({ configured: process.env.POLICY_DB_PATH, envPath: env.path }),
   });
   const { wallet } = buildWallet({
     net: net.value,

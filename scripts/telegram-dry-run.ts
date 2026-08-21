@@ -20,6 +20,7 @@ import { createApprovalsFromEnv } from "../packages/approvals/src/index.js";
 import { createRedactor, type KeseWallet } from "../packages/core/src/index.js";
 import { createPolicyEngine, type PolicyConfig } from "../packages/policy/src/index.js";
 import { spend } from "../packages/mcp/src/spend.js";
+import { envSearchPath, loadDotEnv } from "../packages/core/src/env.js";
 
 const STRK = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
 const ONE = 10n ** 18n;
@@ -39,11 +40,10 @@ function arg(name: string, fallback: string): string {
 }
 
 async function main(): Promise<void> {
-  try {
-    process.loadEnvFile(".env");
-  } catch {
-    /* env may already be set */
-  }
+  // Climb to the .env instead of assuming the cwd holds it. These are run from the repo root
+  // today, so this changes nothing now — it stops the same trap that cost an hour in the MCP
+  // server and the dashboard from being re-set here later (D-041).
+  loadDotEnv({ from: envSearchPath(import.meta.url) });
 
   const approvals = createApprovalsFromEnv({ ...process.env, POLICY_DB_PATH: ":memory:" });
   if (!approvals) {

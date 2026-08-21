@@ -28,7 +28,6 @@
  * moment at which that can be cleaned up, so it is done here.
  */
 
-import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -39,6 +38,7 @@ import {
   resolveNetwork,
   resolveNetworkConfig,
   resolveSigner,
+  resolveStatePath,
 } from "@kese/core";
 import { createPolicyEngine } from "@kese/policy";
 import { createApprovalsFromEnv } from "@kese/approvals";
@@ -78,11 +78,13 @@ export async function main(): Promise<void> {
     return;
   }
 
-  // Relative to the project, not the caller. See the cwd note above: this file holds the
-  // idempotency records, and a second copy of it is a second chance to pay twice.
-  const projectRoot = env.path ? resolve(env.path, "..") : process.cwd();
-  const configuredDb = process.env.POLICY_DB_PATH ?? "./kese-policy.sqlite";
-  const dbPath = isAbsolute(configuredDb) ? configuredDb : resolve(projectRoot, configuredDb);
+  // Relative to the project, not the caller — see the cwd note above. The rule itself lives in
+  // @kese/core because the dashboard needs exactly the same one, and a safety rule with two
+  // implementations has two chances to drift.
+  const dbPath = resolveStatePath({
+    configured: process.env.POLICY_DB_PATH,
+    envPath: env.path,
+  });
 
   const network = resolveNetwork();
   const policy = createPolicyEngine({ dbPath });

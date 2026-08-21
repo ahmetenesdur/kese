@@ -39,6 +39,7 @@ import {
   type PrivateTransfersInterface,
 } from "@starkware-libs/starknet-privacy-sdk";
 import { Mocknet } from "@starkware-libs/starknet-privacy-sdk/testing";
+import { envSearchPath, loadDotEnv } from "../packages/core/src/env.js";
 import {
   DEFAULT_PROVING_GAS_RESERVE_STRK,
   TOKENS,
@@ -131,11 +132,10 @@ function parseArgs(argv: string[]): { mode: Mode; amount: bigint; token: string;
 
 function loadEnv(): void {
   // Node >= 24 built-in; avoids a dotenv dependency.
-  try {
-    process.loadEnvFile(".env");
-  } catch {
-    // No .env is a legitimate state (CI, mock mode) — preflight reports what's missing.
-  }
+  // Climb to the .env instead of assuming the cwd holds it. These are run from the repo root
+  // today, so this changes nothing now — it stops the same trap that cost an hour in the MCP
+  // server and the dashboard from being re-set here later (D-041).
+  loadDotEnv({ from: envSearchPath(import.meta.url) });
 }
 
 // ---------------------------------------------------------------------------
