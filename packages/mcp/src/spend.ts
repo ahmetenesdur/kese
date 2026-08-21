@@ -161,14 +161,21 @@ async function askForApproval(
       remainingDailyBudget: remaining === null ? undefined : `${remaining} (base units)`,
     });
     if (verdict === "approved") return "approved";
-    return {
-      reason:
-        verdict === "timeout"
-          ? "approval request timed out — treated as a denial"
-          : "the owner denied this payment",
-    };
+    return { reason: explainVerdict(verdict) };
   } catch (error) {
     return { reason: `approval channel unavailable: ${redact(error)}` };
+  }
+}
+
+/** Say what actually happened. "Could not ask" and "was refused" are different facts. */
+function explainVerdict(verdict: "denied" | "timeout" | "unreachable"): string {
+  switch (verdict) {
+    case "denied":
+      return "the owner denied this payment";
+    case "timeout":
+      return "approval request timed out — treated as a denial";
+    case "unreachable":
+      return "the approval request could not be delivered, so the owner was never asked — refusing";
   }
 }
 

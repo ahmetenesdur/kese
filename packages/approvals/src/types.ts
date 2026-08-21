@@ -10,7 +10,15 @@ export interface ApprovalTicket {
   remainingDailyBudget?: string;
 }
 
-export type ApprovalVerdict = "approved" | "denied" | "timeout";
+/**
+ * `unreachable` is deliberately distinct from `denied`.
+ *
+ * Both refuse the payment, but only one is true. Reporting a failed send as "the owner denied
+ * this payment" sends the operator looking for a person who never received anything, and hides a
+ * broken integration behind a plausible policy outcome — which is exactly what happened on the
+ * first live dry run.
+ */
+export type ApprovalVerdict = "approved" | "denied" | "timeout" | "unreachable";
 
 export interface ApprovalChannel {
   request(ticket: ApprovalTicket): Promise<ApprovalVerdict>;

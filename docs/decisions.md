@@ -428,3 +428,28 @@ from reality every time someone rehearses.
 
 Worth noting how it surfaced — not from a test or a typecheck, but from asking "what will the owner
 actually see when they run this?" before running it.
+
+### D-026 — Approval messages are plain text, and "unreachable" is not "denied"
+
+The first live Telegram dry run refused the payment and reported *"the owner denied this payment"*.
+The owner had seen nothing at all. Two separate defects, both found only by running it against the
+real API with a real phone:
+
+**1. `parse_mode: "Markdown"` on data we do not control.** Telegram replied
+`can't parse entities: Can't find end of the entity starting at byte offset 40` — byte 40 was the
+underscore in `private_transfer`. Legacy Markdown reads `_` as italic, finds no closing one, and
+rejects the *entire* message. An approval message carries action names, addresses and amounts that
+we never get to sanitise, so any formatting mode is a liability: bold text is not worth a broken
+approval. Now sent as plain text, with a regression test using the exact string that broke it.
+
+**2. A failed send was reported as a denial.** `request()` returned `"denied"` when `sendMessage`
+threw, and the spend pipeline rendered that as "the owner denied this payment". Both outcomes refuse
+the payment, but only one is true — and the false one sends the operator hunting for a person who
+never received anything, while a broken integration hides behind a plausible-looking policy outcome.
+`ApprovalVerdict` gained `"unreachable"`, reported as *"the approval request could not be delivered,
+so the owner was never asked"*.
+
+The pattern is the same one D-025 caught an hour earlier, and worth naming: **the failure modes that
+matter most here are the ones that produce a confident, wrong answer.** A crash is loud. "Paid" when
+nothing was submitted, or "the owner denied" when the owner never saw it, are quiet — and both were
+found by asking what a human would actually see, not by a test.

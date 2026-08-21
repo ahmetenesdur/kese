@@ -120,9 +120,11 @@ describe("verdicts", () => {
     approvals.stop();
   });
 
-  it("denies when the transport cannot deliver the request at all", async () => {
-    // No message means the owner never saw it. Waiting out the timeout would be technically
-    // correct and practically useless; deny immediately and say why.
+  it('reports "unreachable" — NOT "denied" — when the message never got sent', async () => {
+    // The first live dry run failed exactly here and reported "the owner denied this payment".
+    // The owner had seen nothing. Conflating "could not ask" with "was refused" sends the operator
+    // hunting for a person who never received anything, and hides a broken integration behind a
+    // plausible-looking policy outcome. Both refuse the payment; only one is true.
     const broken: TelegramTransport = {
       ...transport(),
       sendMessage: async () => {
@@ -135,7 +137,7 @@ describe("verdicts", () => {
       timeoutMs: 5000,
       pollMs: 10,
     });
-    expect(await approvals.request(ticket())).toBe("denied");
+    expect(await approvals.request(ticket())).toBe("unreachable");
     approvals.stop();
   });
 

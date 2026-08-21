@@ -38,8 +38,12 @@ export function createTelegramTransport(botToken: string): TelegramTransport {
     async sendMessage(chatId, text, buttons) {
       const result = await call<{ message_id: number }>("sendMessage", {
         chat_id: chatId,
+        // NO parse_mode, deliberately. Telegram's legacy Markdown reads `_` as italic, and an
+        // approval message carries data we do not control — `private_transfer`, addresses, amounts.
+        // The first live dry run died on exactly that: "can't parse entities" at the underscore in
+        // `private_transfer`, so the owner saw nothing and the payment was refused for a reason
+        // that had nothing to do with them. Bold text is not worth a broken approval.
         text,
-        parse_mode: "Markdown",
         reply_markup: buttons
           ? { inline_keyboard: [buttons.map((b) => ({ text: b.text, callback_data: b.data }))] }
           : undefined,

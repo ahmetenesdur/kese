@@ -147,9 +147,10 @@ export function createTelegramApprovals(options: TelegramApprovalOptions): Teleg
         ]);
         messageId = sent.messageId;
       } catch {
-        // The owner never saw the request. Waiting out the timeout would be correct and useless.
-        await persist?.resolve(ticket.id, "denied").catch(() => {});
-        return "denied";
+        // The owner never saw the request. Waiting out the timeout would be correct and useless —
+        // but this is NOT a denial, and saying so would be a lie about who refused.
+        await persist?.resolve(ticket.id, "unreachable").catch(() => {});
+        return "unreachable";
       }
 
       void poll();
@@ -191,7 +192,7 @@ export function createTelegramApprovals(options: TelegramApprovalOptions): Teleg
  */
 function renderMessage(ticket: ApprovalTicket): string {
   const lines = [
-    "🔐 *Kese — approval needed*",
+    "🔐 Kese — approval needed",
     "",
     ticket.summary,
     "",
