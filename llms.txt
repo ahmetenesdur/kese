@@ -1,14 +1,31 @@
 # Kese — private money for AI agents on STRK20
 # Machine-readable index for coding agents.
 
-CLAUDE.md            : build instructions & conventions for coding agents (start here)
-PLAN.md              : 10-day build plan with acceptance criteria and decision gates
-docs/strk20-notes.md : distilled STRK20 protocol knowledge, exact APIs, addresses, gotchas
-docs/architecture.md : components, flows, security model
-SUBMISSION.md        : hackathon submission checklist + registry entry
-packages/core        : STRK20 SDK wrapper (register/shield/transfer/withdraw/notes)
-packages/policy      : deterministic guardrails (limits, allowlist, reservations, idempotency)
-packages/mcp         : MCP server exposing safe money tools to LLM agents
-packages/approvals   : human-in-the-loop approval (Telegram + web)
-contracts/escrow-claim : Cairo privacy_invoke helper — claim-link payments (+refund extension)
-scripts/setup-skills.sh : installs recommended agent skills (STRK20 official + Anthropic dev skills)
+CLAUDE.md              : build instructions & conventions for coding agents (start here)
+PLAN.md                : 10-day build plan with acceptance criteria and decision gates
+docs/decisions.md      : why things are the way they are — every non-obvious call, D-001 … D-044
+docs/strk20-notes.md   : distilled STRK20 protocol knowledge, exact APIs, addresses, gotchas
+docs/architecture.md   : components, flows, security model
+SUBMISSION.md          : hackathon submission state and what remains
+strk20.json            : the submission manifest itself
+
+packages/core          : STRK20 SDK wrapper — wallet, note ladder, fees, claim-link secrets,
+                         env/state-path resolution, chain submitter (10-block rule, mainnet arming)
+packages/policy        : deterministic guardrails — caps, allowlist, reservations, idempotency
+packages/mcp           : the MCP server; src/main.ts is the runnable entrypoint (stdio)
+packages/approvals     : human-in-the-loop approval over Telegram
+contracts/escrow-claim : Cairo privacy_invoke helper — claim links with expiry + refund
+
+apps/claim             : recipient claim page — static, reads the escrow directly. THE PUBLIC DEMO.
+apps/dashboard         : owner view + CSV spend report. Loopback only; never deploy it publicly.
+
+scripts/day1-sepolia-smoke.ts : the end-to-end STRK20 flow at three levels of reality
+scripts/prover-up.sh          : stand up a self-hosted prover on a rented amd64 Linux box
+scripts/cairo.sh              : run scarb/snforge wherever they are installed
+scripts/build-vercel-tree.mjs : assemble the exact tree deployed as the public demo
+scripts/gen-smoke-keys.ts     : generate a Sepolia signer; deploy an existing account on either net
+scripts/deploy-escrow.ts      : declare + deploy the Cairo escrow (needs no proof)
+
+# Two things to know before changing anything:
+#  - Every money path goes through packages/policy. No tool calls a transfer function directly.
+#  - Nothing that reaches an LLM, a log, or a screenshot may contain key material.

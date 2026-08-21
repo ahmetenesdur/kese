@@ -1,44 +1,61 @@
-# SUBMISSION.md — hackathon mechanics & checklist
+# SUBMISSION.md — where the hackathon submission stands
 
-## 1) Registration (Day 1, ~10 minutes)
+Deadline **31 August 2026, 23:59 UTC**. Finish hours early, not minutes.
 
-1. Fork `https://github.com/starkience/strk20-hackathon`
-2. Add this entry to `registry.json` (with your own repo URL):
+## The manifest
 
-```json
-{
-  "name": "Kese",
-  "repo_url": "https://github.com/ahmetenesdur/kese",
-  "telegram": "YOUR_TELEGRAM_USERNAME",
-  "description": "Private money for AI agents — policy-guarded MCP wallet on the STRK20 pool: private payments within hard limits, Telegram approvals, claim-link escrow for unregistered recipients, viewing-key audit reports.",
-  "category": "Payments",
-  "team": ["ahmetenesdur"]
-}
-```
+`strk20.json` at the repo root is what gets judged. Current state:
 
-3. PR title: `Register: Kese — private money for AI agents`
-4. PR description (copy):
+| Field | State |
+|---|---|
+| `demo_url` | ✅ `https://kese-claim.vercel.app` — live, rebuilds from `main` on every push |
+| `contracts[]` | ⬜ escrow deployed on **Sepolia** (`0x1ff4c7f2…3108`); mainnet deploy needs no proof and can happen any time |
+| `transactions[]` | ⬜ three mainnet transactions carrying a STRK20 pool event — **blocked on proving** |
+| `demo_video` | ⬜ owner records; three minutes |
 
-> **Kese** gives LLM agents a policy-guarded spending account on the STRK20 pool. Agents pay privately through MCP tools; a deterministic policy engine (per-tx/daily caps, allowlists, Telegram human-approval, idempotency) sits between the model and the money, and owners get viewing-key-based audit reports — privacy from the world, not from you. Includes a `privacy_invoke` escrow extension (claim links with expiry+refund) so agents can pay unregistered recipients. Original idea (not on the RFP list); closest kin: private payment rails + the compliance-layer RFP. Solo build.
+Two of these are still placeholders and will stay placeholders until they are real. A manifest
+with an aspirational hash in it is worse than one with an obvious `TODO`.
 
-Note: the `inspired_by` field is intentionally left empty — original-idea positioning.
+**What counts as an eligible transaction.** Each hash must exist, have succeeded, and carry a
+STRK20 pool event — *any* pool event, not specifically a `Deposit` (D-040). Note that the mainnet
+account deployment does **not** qualify: it carries zero pool events.
 
-## 2) Day-1 GitHub issue (proving access)
+**Why they are blocked.** The pool's only user-facing entrypoint is `apply_actions`, which consumes
+the output of a proof. There is no `deposit` or `register` entrypoint, and a STARK proof cannot be
+produced on-chain — so nothing reaches the pool without a proving service (D-044).
 
-Repo: `starkience/strk20-hackathon` → Issues → New:
+## Done
 
-> **Title:** Privacy SDK route — proving service access for mainnet (and Sepolia)
-> **Body:** Building "Kese" (registry PR #___): an MCP layer that lets AI agents spend from the pool server-side, so we need the Privacy SDK route with proving services rather than the Wallet API route. The Day-0 guide says the mainnet proving URL isn't published and to ask here — could you share access details (mainnet + Sepolia)? Happy to comply with any rate limits. Telegram: @____
+- **Registered.** `ahmetenesdur/kese` is in the upstream `registry.json`, among 110 projects.
+- **Proving access requested.** Issues #147 (ours) and #124, plus #121 and #135 from other teams.
+  No maintainer reply as of 21 August; upstream commit `52e7b63` acknowledges six blocked teams.
+- **Mainnet account live and funded.** `0x76bdc7a5…14062`, deployed in block 13639611, holding
+  ~115 STRK. Every mainnet preflight check passes.
+- **Public demo.** Built from this repository, no credential stored on Vercel.
+- **Repo public, MIT.**
 
-## 3) Final submission checklist (Days 10-11)
+## Remaining, in the order they can happen
 
-- [ ] `strk20.json` at repo root: ≥3 **mainnet** tx hashes touching the pool (the `Deposit` event's `user_addr` must be our address), `contracts[]` (escrow address), `demo_video`, `demo_url`
-- [ ] Repo public + MIT + README up to date
-- [ ] 3-minute video uploaded (unlisted YouTube is fine)
-- [ ] Demo live (Vercel)
-- [ ] Last commit well before Aug 31, 23:59 UTC — finish hours early
+1. **Mainnet escrow deploy** — needs no proof, so it can be done today. Fills `contracts[]`.
+   `KESE_NETWORK=mainnet pnpm escrow:deploy -- --i-mean-mainnet` (dry-run first, it is free).
+2. **Proving service** — either the hosted URL arrives, or `./scripts/prover-up.sh` on a rented
+   amd64 Linux box (Gate G1 decision, 23 August).
+3. **Three mainnet transactions**, immediately after 2. The dry run has already proved the wiring,
+   so this is a submission rather than a debugging session.
+4. **Video** — four beats: a private payment, a Telegram approval on a limit breach, a claim link,
+   the audit view.
 
-## 4) Afterwards (Sep 4+)
+## Judging weights, and where they are earned
 
-- Whatever the result: [strk20.starknet.io/rfp](https://strk20.starknet.io/rfp) → **Book a call** (cal.com/adithyadinesh) — with the Kese demo
-- PROOF accelerator (proof.starknet.io) next-cohort application — they want a "prototype/MVP + users" profile; Kese fits exactly
+| Criterion | Weight | Where |
+|---|---|---|
+| STRK20 integration depth | 30% | register / shield / transfer / withdraw / discovery / note ladder / `privacy_invoke` escrow / viewing-key reporting |
+| Working mainnet product | 30% | live pool integration, public demo; the three transactions are the gap |
+| Innovation | 25% | policy-guarded agent spending, LLM-safe tool design, claim links with refund |
+| Documentation & open source | 15% | `README.md`, `docs/`, `llms.txt`, the decision log, MIT |
+
+## Afterwards (Sep 4+)
+
+- [strk20.starknet.io/rfp](https://strk20.starknet.io/rfp) → **Book a call** (cal.com/adithyadinesh),
+  with the Kese demo.
+- PROOF accelerator (proof.starknet.io) — they want "prototype/MVP + users"; Kese fits.

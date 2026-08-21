@@ -8,7 +8,7 @@ threshold, and leaves the owner a complete audit trail.
 
 **Live demo → [kese-claim.vercel.app](https://kese-claim.vercel.app)**
 
-MIT · Node ≥ 24 · TypeScript + Cairo · 301 TS tests, 19 Cairo tests
+MIT · Node ≥ 24 · TypeScript + Cairo · 317 TS tests, 19 Cairo tests
 
 ---
 
@@ -116,7 +116,7 @@ Three properties it has to hold under an agent that retries:
   is deny. A wallet server that came up with no limits would be worse than one that failed,
   because the agent would find it working — so the MCP server refuses to start without a policy.
 
-54 of the 301 tests are on this engine alone, including the race conditions.
+54 of the 317 tests are on this engine alone, including the race conditions.
 
 ## Claim links
 
@@ -201,14 +201,14 @@ The pool is not a cloak, and overstating it would be the easiest way to get some
 |---|---|
 | Demo | [kese-claim.vercel.app](https://kese-claim.vercel.app) — the claim page, reading the live Sepolia escrow. The four recipient screens are reachable as clearly-labelled samples, because no funded link can exist until proving works. |
 | Sepolia | register / shield / discover / transfer / withdraw exercised end to end; escrow deployed at [`0x1ff4c7…3108`](https://sepolia.starkscan.co/contract/0x1ff4c7f216a9e1452e4533e03f926e2b10c7868a085b52c6034bcaa3cf3108) |
-| Mainnet | pool reads verified against the live contract; the full flow compiles and node-executes in simulate mode. **No submitted mainnet transactions yet.** |
-| Blocker | the mainnet **proving service URL is not public**. Everything up to proof submission runs; that one call cannot. Tracked upstream, with a self-hosted prover as the fallback — see [`docs/decisions.md`](docs/decisions.md) D-037/D-040. |
-| `strk20.json` | `demo_url` is live; the transaction hashes are still placeholders. They will be real or absent — never aspirational. |
+| Mainnet | account deployed and funded (`0x76bdc7a5…14062`, block 13639611); every preflight check passes; the full flow compiles and node-executes against the live pool in simulate mode. **No pool transactions submitted yet** — the account deployment carries no pool event, so it is not one of them. |
+| Blocker | the **proving service URL is not public**, and nothing reaches the pool without a proof: its only user-facing entrypoint is `apply_actions`, which consumes one, and a STARK proof cannot be produced on-chain (D-044). Six teams are waiting upstream. Our fallback is one command — [`scripts/prover-up.sh`](scripts/prover-up.sh) on a rented amd64 box (D-043). |
+| `strk20.json` | `demo_url` is live. Transaction hashes and the mainnet escrow address are still placeholders, and stay that way until they are real — an aspirational hash is worse than an obvious `TODO`. See [`SUBMISSION.md`](SUBMISSION.md). |
 
 ## Build and test
 
 ```bash
-pnpm test          # 301 TypeScript tests
+pnpm test          # 317 TypeScript tests
 pnpm typecheck     # builds every package, then checks the scripts
 pnpm escrow:test   # 19 Cairo tests (needs scarb + snforge; everything else does not)
 pnpm dashboard     # owner view on 127.0.0.1:5184
