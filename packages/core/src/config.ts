@@ -11,7 +11,15 @@
  *  4. Fail closed — a missing prerequisite produces a `missing[]` entry, never a guess.
  */
 
-import { constants } from "starknet";
+import { constants, ec } from "starknet";
+
+/**
+ * Valid viewing keys live in [1, MAX_VIEWING_KEY] — HALF the curve order, not the full range.
+ * Mirrors the SDK's own `MAX_VIEWING_KEY`; duplicated here so config validation does not depend
+ * on the SDK being importable. A key above this is accepted by BigInt() but rejected deep inside
+ * the SDK, so catching it here turns a confusing runtime failure into a clear config error.
+ */
+export const MAX_VIEWING_KEY = ec.starkCurve.CURVE.n / 2n;
 
 export type Network = "sepolia" | "mainnet";
 
@@ -142,8 +150,9 @@ export function resolveSigner(env: Env = process.env): Resolved<SignerConfig> {
     missing.push("VIEWING_KEY (not parseable as an integer — expected decimal or 0x-hex)");
     return { value: null, missing };
   }
-  if (viewingKey <= 0n) {
-    missing.push("VIEWING_KEY (must be a positive integer)");
+  if (viewingKey <= 0n || viewingKey > MAX_VIEWING_KEY) {
+    // Range only — the value itself is never echoed.
+    missing.push(`VIEWING_KEY (out of range — must be in [1, ${MAX_VIEWING_KEY}])`);
     return { value: null, missing };
   }
 

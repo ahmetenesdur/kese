@@ -52,6 +52,15 @@ bash scripts/setup-skills.sh   # STRK20 + Anthropic agent skills (see CLAUDE.md 
 cp .env.example .env           # fill: RPC, account, viewing key, proving URL
 ```
 
+On Sepolia you can generate the agent's signer in one step — it writes the keys straight into
+`.env` and never prints them:
+
+```sh
+pnpm keys:gen            # generate + write .env, print the address to fund
+# ...fund that address with Sepolia STRK from a faucet, then:
+pnpm keys:gen --deploy   # deploy the account on-chain
+```
+
 Verify the STRK20 integration end to end. The smoke test runs at three levels of reality, so
 you can validate the flow before you have credentials or a proving service:
 

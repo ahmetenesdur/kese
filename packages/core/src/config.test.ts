@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  MAX_VIEWING_KEY,
   TOKENS,
   createRedactor,
   resolveNetwork,
@@ -98,6 +99,20 @@ describe("resolveSigner", () => {
   it("rejects a zero viewing key", () => {
     const { value } = resolveSigner({ ...fullEnv, VIEWING_KEY: "0" });
     expect(value).toBeNull();
+  });
+
+  it("rejects a viewing key above MAX_VIEWING_KEY — the range is [1, n/2], not [1, n)", () => {
+    const { value, missing } = resolveSigner({
+      ...fullEnv,
+      VIEWING_KEY: (MAX_VIEWING_KEY + 1n).toString(),
+    });
+    expect(value).toBeNull();
+    expect(missing.join(" ")).toMatch(/out of range/);
+  });
+
+  it("accepts exactly MAX_VIEWING_KEY (inclusive bound)", () => {
+    const { value } = resolveSigner({ ...fullEnv, VIEWING_KEY: MAX_VIEWING_KEY.toString() });
+    expect(value?.viewingKey).toBe(MAX_VIEWING_KEY);
   });
 });
 

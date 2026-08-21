@@ -14,7 +14,8 @@
     "smoke:mock": "tsx scripts/day1-sepolia-smoke.ts --mode=mock",
     "smoke:simulate": "tsx scripts/day1-sepolia-smoke.ts --mode=simulate",
     "smoke:sepolia": "tsx scripts/day1-sepolia-smoke.ts --mode=service",
-    "test": "vitest run"
+    "test": "vitest run",
+    "keys:gen": "tsx scripts/gen-smoke-keys.ts"
   },
   "dependencies": {
     "@starkware-libs/starknet-privacy-sdk": "file:./vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz",

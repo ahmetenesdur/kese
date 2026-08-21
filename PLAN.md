@@ -10,7 +10,9 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - [x] `scripts/day1-sepolia-smoke.ts` implemented — 3 modes (`mock` / `simulate` / `service`), full preflight, blocker attribution, JSON report
 - [x] `--mode=mock`: **7/7 steps pass** — register (both parties) → shield → discoverNotes → private transfer → recipient-side verification → withdraw
 - [x] `--mode=simulate` preflight green against live Sepolia: RPC (spec 0.10.3-rc.0), pool `0x0254a6…0d91`, STRK token, `provingBlockId = head − 10`
-- [ ] Live Sepolia run — blocked on: **signer** (`ACCOUNT_ADDRESS` / `ACCOUNT_PRIVATE_KEY` / `VIEWING_KEY`, owner) and **proving URL** (#147, upstream)
+- [x] `scripts/gen-smoke-keys.ts` (`pnpm keys:gen`) — CSPRNG signer + viewing key written straight into `.env`, never printed; counterfactual address printed for funding; `--deploy` deploys it. Sepolia-only by construction
+- [ ] **Owner (2 min):** `pnpm keys:gen` → fund the printed address with Sepolia **STRK** from a faucet → `pnpm keys:gen --deploy`
+- [ ] Live Sepolia run — then blocked only on **proving URL** (#147, upstream); `pnpm smoke:simulate` becomes runnable as soon as the account is deployed
 - [x] Measure: proof-time instrumentation in place (`TimedProofProvider` isolates prove() from submission); real numbers await the proving URL. Failure modes recorded in docs/decisions.md D-005..D-009
 - **GATE G1:** Did the smoke test pass? If not → 1 day of debugging; if still red by end of Day 3 → switch to the Wallet-API-route fallback design (below) or withdraw. Apply without sentiment.
   - **Day-1 verdict: PARTIAL / open — do not pivot.** Nothing failed for a reason inside our control; the only blockers are externally owned. "Red" means *our* code fails, not that a third party hasn't replied. Full evidence: docs/decisions.md D-009.
