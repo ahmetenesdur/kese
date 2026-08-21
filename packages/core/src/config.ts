@@ -116,7 +116,14 @@ export function resolveNetworkConfig(env: Env = process.env): Resolved<NetworkCo
       poolAddress,
       provingServiceUrl: read(env, `PROVING_SERVICE_URL_${suffix}`) ?? null,
       indexerUrl: read(env, "INDEXER_URL") ?? null,
-      escrowAddress: read(env, "ESCROW_CONTRACT_ADDRESS") ?? null,
+      // Per-network, like the RPC, pool and proving URLs above. There are now two real escrow
+      // deployments, and a single shared variable would point Sepolia claim links at the mainnet
+      // contract — a link that reads as valid and can never be claimed. The unsuffixed name is
+      // still accepted so an existing .env keeps working, but the suffixed one wins.
+      escrowAddress:
+        read(env, `ESCROW_CONTRACT_ADDRESS_${suffix}`) ??
+        read(env, "ESCROW_CONTRACT_ADDRESS") ??
+        null,
     },
     missing,
   };

@@ -5,7 +5,7 @@
     "TODO_MAINNET_TX_HASH_3_touching_pool"
   ],
   "contracts": [
-    "TODO_escrow_claim_deployed_address"
+    "0x4b41a5648796ce290fcba3f5630a66f9fe737f58de6b9589a5d780a2c4999f3"
   ],
   "demo_video": "TODO_3min_video_url",
   "demo_url": "https://kese-claim.vercel.app"

@@ -9,7 +9,7 @@ Deadline **31 August 2026, 23:59 UTC**. Finish hours early, not minutes.
 | Field | State |
 |---|---|
 | `demo_url` | ✅ `https://kese-claim.vercel.app` — live, rebuilds from `main` on every push |
-| `contracts[]` | ⬜ escrow deployed on **Sepolia** (`0x1ff4c7f2…3108`); mainnet deploy needs no proof and can happen any time |
+| `contracts[]` | ✅ `0x4b41a5648796ce290fcba3f5630a66f9fe737f58de6b9589a5d780a2c4999f3` — deployed and verified on mainnet, block 13640339 |
 | `transactions[]` | ⬜ three mainnet transactions carrying a STRK20 pool event — **blocked on proving** |
 | `demo_video` | ⬜ owner records; three minutes |
 
@@ -29,6 +29,7 @@ produced on-chain — so nothing reaches the pool without a proving service (D-0
 - **Registered.** `ahmetenesdur/kese` is in the upstream `registry.json`, among 110 projects.
 - **Proving access requested.** Issues #147 (ours) and #124, plus #121 and #135 from other teams.
   No maintainer reply as of 21 August; upstream commit `52e7b63` acknowledges six blocked teams.
+- **Escrow live on mainnet.** `0x4b41a564…` — `pool()` returns the mainnet pool.
 - **Mainnet account live and funded.** `0x76bdc7a5…14062`, deployed in block 13639611, holding
   ~115 STRK. Every mainnet preflight check passes.
 - **Public demo.** Built from this repository, no credential stored on Vercel.
@@ -36,13 +37,11 @@ produced on-chain — so nothing reaches the pool without a proving service (D-0
 
 ## Remaining, in the order they can happen
 
-1. **Mainnet escrow deploy** — needs no proof, so it can be done today. Fills `contracts[]`.
-   `KESE_NETWORK=mainnet pnpm escrow:deploy -- --i-mean-mainnet` (dry-run first, it is free).
-2. **Proving service** — either the hosted URL arrives, or `./scripts/prover-up.sh` on a rented
+1. **Proving service** — either the hosted URL arrives, or `./scripts/prover-up.sh` on a rented
    amd64 Linux box (Gate G1 decision, 23 August).
-3. **Three mainnet transactions**, immediately after 2. The dry run has already proved the wiring,
-   so this is a submission rather than a debugging session.
-4. **Video** — four beats: a private payment, a Telegram approval on a limit breach, a claim link,
+2. **Three mainnet transactions**, immediately after 2. The dry run has already proved the wiring,
+   so this is a submission rather than a debugging session. Step-by-step in [`docs/mainnet-day.md`](docs/mainnet-day.md).
+3. **Video** — four beats: a private payment, a Telegram approval on a limit breach, a claim link,
    the audit view.
 
 ## Judging weights, and where they are earned

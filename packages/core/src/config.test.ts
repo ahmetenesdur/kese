@@ -168,3 +168,46 @@ describe("TOKENS", () => {
     expect(TOKENS.mainnet.STRK).toBe(TOKENS.sepolia.STRK);
   });
 });
+
+describe("escrow address is resolved per network", () => {
+  const base = (network: string) => ({
+    KESE_NETWORK: network,
+    RPC_URL_SEPOLIA: "https://sepolia.example/rpc",
+    RPC_URL_MAINNET: "https://mainnet.example/rpc",
+    POOL_ADDRESS_SEPOLIA: "0xpoo15e",
+    POOL_ADDRESS_MAINNET: "0xpoo1ma1n",
+  });
+
+  it("picks the escrow belonging to the selected network", () => {
+    const env = {
+      ...base("sepolia"),
+      ESCROW_CONTRACT_ADDRESS_SEPOLIA: "0x5e",
+      ESCROW_CONTRACT_ADDRESS_MAINNET: "0xma1n",
+    };
+    expect(resolveNetworkConfig(env).value?.escrowAddress).toBe("0x5e");
+    expect(resolveNetworkConfig({ ...env, KESE_NETWORK: "mainnet" }).value?.escrowAddress).toBe(
+      "0xma1n"
+    );
+  });
+
+  it("does not fall back to the other network's escrow when its own is unset", () => {
+    // The failure this prevents: a Sepolia claim link pointing at the mainnet contract — a link
+    // that looks valid and can never be claimed, because the commitment is not there.
+    const env = { ...base("sepolia"), ESCROW_CONTRACT_ADDRESS_MAINNET: "0xma1n" };
+    expect(resolveNetworkConfig(env).value?.escrowAddress).toBeNull();
+  });
+
+  it("still honours the old unsuffixed name, so an existing .env keeps working", () => {
+    const env = { ...base("sepolia"), ESCROW_CONTRACT_ADDRESS: "0x01d" };
+    expect(resolveNetworkConfig(env).value?.escrowAddress).toBe("0x01d");
+  });
+
+  it("prefers the suffixed name over the old one", () => {
+    const env = {
+      ...base("mainnet"),
+      ESCROW_CONTRACT_ADDRESS: "0x01d",
+      ESCROW_CONTRACT_ADDRESS_MAINNET: "0xnew",
+    };
+    expect(resolveNetworkConfig(env).value?.escrowAddress).toBe("0xnew");
+  });
+});

@@ -1038,3 +1038,41 @@ rather than a flat contradiction.
 
 **Consequence for G1:** unchanged. No proof, no mainnet transaction, no eligibility. The rented-box
 prover (D-043) stays the plan if #147 is still silent on 23 August.
+
+---
+
+## D-045 — The escrow is on mainnet, and the run costs more than we had written down
+
+**Date:** 2026-08-21 · **Phase:** M · **Status:** deployed and verified
+
+`contracts[]` in `strk20.json` is filled: `0x4b41a5648796ce290fcba3f5630a66f9fe737f58de6b9589a5d780a2c4999f3`,
+block 13640339. It is the one submission requirement proving does not gate — the escrow is a plain
+Cairo contract, and only *using* it through `privacy_invoke` needs a proof.
+
+Verified rather than assumed, because the contract is immutable: the deployed class hash matches a
+fresh local build, and `pool()` returns the mainnet pool. The constructor argument is the
+contract's entire access control, so a Sepolia address baked in there would have produced a
+contract that looks deployed and can never be driven.
+
+**The cost estimate was wrong by 20×.** Predicted 0.1–0.5 STRK from the account deploy's 0.054;
+actual **8.73 STRK**. Declaring a Cairo class is nothing like deploying an account — the class
+bytecode goes on-chain. Recorded because the same reasoning would have under-funded mainnet day.
+
+**And the mainnet-day fee arithmetic was wrong too, in the file written to prevent exactly that.**
+The first draft of `docs/mainnet-day.md` said three pool operations, 18 STRK. Reading the smoke
+script shows the service-mode run performs **four**: register, shield, private transfer, withdraw —
+**24 STRK** — plus a transparent ERC-20 `approve` between register and shield that pays gas only and
+carries no pool event, so it is not eligible. Four eligible hashes for a three-hash requirement is
+the right slack, but 18 could have stranded the run mid-sequence.
+
+**Waits are not the slow part.** Mainnet blocks average **1.7 s** (measured over 200 blocks), so
+each ten-block maturity wait is about 17 seconds and all four together are roughly a minute. The
+draft warned of "several minutes of waiting", which would have made a healthy run look stuck.
+Proving time is the unknown, and it remains unmeasured.
+
+**One config bug found while recording the address.** `ESCROW_CONTRACT_ADDRESS` was a single
+variable, like `ACCOUNT_ADDRESS`, while there are now two real deployments. With `KESE_NETWORK=sepolia`
+and the mainnet address in `.env`, claim links would have pointed at the mainnet contract: a link
+that parses, renders, and can never be claimed, because the commitment is not there. Now resolved
+per network with the same suffix rule as the RPC, pool and proving URLs, with the unsuffixed name
+still honoured so an existing `.env` keeps working.

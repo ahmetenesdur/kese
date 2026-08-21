@@ -46,6 +46,9 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - Fallback: if Cairo stalls → cut claim links, ship "registered-only payments" (contracts field stays empty; acceptable loss). Softer fallback first: escrow pays the claimer by plain ERC-20 transfer instead of an open note — claimer loses privacy, funds stay recoverable.
 
 ## Phase M — Mainnet (Day 8, Aug 28)
+- [x] Escrow deployed to **mainnet** — `0x4b41a564…4999f3`, block 13640339, declare+deploy cost
+      8.73 STRK. `pool()` verified against the mainnet pool. Needs no proof; recorded in `strk20.json`.
+      Runbook for the remaining three transactions: `docs/mainnet-day.md`.
 - [x] Mainnet account funded — 115 STRK. Every mainnet preflight check now passes, including the
       unverified 24 STRK proving reserve. Nothing on the owner's side is outstanding for Phase M;
       the three transactions are held solely by the missing proving service.

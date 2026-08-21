@@ -8,7 +8,7 @@ threshold, and leaves the owner a complete audit trail.
 
 **Live demo → [kese-claim.vercel.app](https://kese-claim.vercel.app)**
 
-MIT · Node ≥ 24 · TypeScript + Cairo · 317 TS tests, 19 Cairo tests
+MIT · Node ≥ 24 · TypeScript + Cairo · 334 TS tests, 19 Cairo tests
 
 ---
 
@@ -95,7 +95,7 @@ Long form in [`docs/strk20-notes.md`](docs/strk20-notes.md).
 | `VIEWING_KEY` must be a bigint; a hex string silently misbehaves | Parsed and range-checked at load (`[1, n/2]`, with rejection sampling on generation) ([`config.ts`](packages/core/src/config.ts)) |
 | v3 transactions require `tip: 0n` | Set at the submitter, not per call site ([`chain.ts`](packages/core/src/chain.ts)) |
 | No indexer dependency wanted | `ContractDiscoveryProvider` over plain RPC, built from a typed pool `Contract` |
-| Proving costs gas the pool does not quote you | Headroom check before every operation; `get_fee_amount` read from the chain (mainnet **6**, Sepolia **2** per private op) ([`fees.ts`](packages/core/src/fees.ts)) |
+| Proving costs gas the pool does not quote you | Headroom check before every operation; `get_fee_amount` read from the chain — mainnet **6 STRK per pool operation**, so a full register/shield/transfer/withdraw run is 24 ([`fees.ts`](packages/core/src/fees.ts)) |
 | One external `privacy_invoke` per pool transaction | The escrow is designed around that budget, and asserts its caller is the pool |
 
 ## The policy engine
@@ -116,7 +116,7 @@ Three properties it has to hold under an agent that retries:
   is deny. A wallet server that came up with no limits would be worse than one that failed,
   because the agent would find it working — so the MCP server refuses to start without a policy.
 
-54 of the 317 tests are on this engine alone, including the race conditions.
+54 of the 334 tests are on this engine alone, including the race conditions.
 
 ## Claim links
 
@@ -200,7 +200,7 @@ The pool is not a cloak, and overstating it would be the easiest way to get some
 | | |
 |---|---|
 | Demo | [kese-claim.vercel.app](https://kese-claim.vercel.app) — the claim page, reading the live Sepolia escrow. The four recipient screens are reachable as clearly-labelled samples, because no funded link can exist until proving works. |
-| Sepolia | register / shield / discover / transfer / withdraw exercised end to end; escrow deployed at [`0x1ff4c7…3108`](https://sepolia.starkscan.co/contract/0x1ff4c7f216a9e1452e4533e03f926e2b10c7868a085b52c6034bcaa3cf3108) |
+| Escrow | deployed and verified on **both** networks — mainnet [`0x4b41a5…99f3`](https://voyager.online/contract/0x4b41a5648796ce290fcba3f5630a66f9fe737f58de6b9589a5d780a2c4999f3), Sepolia [`0x1ff4c7…3108`](https://sepolia.starkscan.co/contract/0x1ff4c7f216a9e1452e4533e03f926e2b10c7868a085b52c6034bcaa3cf3108). `pool()` returns the right pool on each. Needs no proof — a plain Cairo contract. |
 | Mainnet | account deployed and funded (`0x76bdc7a5…14062`, block 13639611); every preflight check passes; the full flow compiles and node-executes against the live pool in simulate mode. **No pool transactions submitted yet** — the account deployment carries no pool event, so it is not one of them. |
 | Blocker | the **proving service URL is not public**, and nothing reaches the pool without a proof: its only user-facing entrypoint is `apply_actions`, which consumes one, and a STARK proof cannot be produced on-chain (D-044). Six teams are waiting upstream. Our fallback is one command — [`scripts/prover-up.sh`](scripts/prover-up.sh) on a rented amd64 box (D-043). |
 | `strk20.json` | `demo_url` is live. Transaction hashes and the mainnet escrow address are still placeholders, and stay that way until they are real — an aspirational hash is worse than an obvious `TODO`. See [`SUBMISSION.md`](SUBMISSION.md). |
@@ -208,7 +208,7 @@ The pool is not a cloak, and overstating it would be the easiest way to get some
 ## Build and test
 
 ```bash
-pnpm test          # 317 TypeScript tests
+pnpm test          # 334 TypeScript tests
 pnpm typecheck     # builds every package, then checks the scripts
 pnpm escrow:test   # 19 Cairo tests (needs scarb + snforge; everything else does not)
 pnpm dashboard     # owner view on 127.0.0.1:5184

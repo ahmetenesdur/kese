@@ -7,6 +7,7 @@ docs/decisions.md      : why things are the way they are — every non-obvious c
 docs/strk20-notes.md   : distilled STRK20 protocol knowledge, exact APIs, addresses, gotchas
 docs/architecture.md   : components, flows, security model
 SUBMISSION.md          : hackathon submission state and what remains
+docs/mainnet-day.md    : the day-8 runbook — exact order, waits, costs, and failure modes
 strk20.json            : the submission manifest itself
 
 packages/core          : STRK20 SDK wrapper — wallet, note ladder, fees, claim-link secrets,
