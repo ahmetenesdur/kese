@@ -228,6 +228,45 @@ describe("idempotency (hard rule 3)", () => {
   });
 });
 
+describe("simulate mode must not report a payment (honest reporting)", () => {
+  it('reports "simulated", never "paid", when nothing was submitted', async () => {
+    // Without this the LLM is told the payment succeeded while nothing reached the chain — and it
+    // would go on to tell the user the invoice is settled. A dry run that lies is worse than no
+    // dry run.
+    const outcome = await spend(
+      request({ amount: 10n }),
+      deps({
+        wallet: { ...wallet, payPrivate: async () => ({ status: "simulated" as const }) },
+      })
+    );
+    expect(outcome.status).toBe("simulated");
+  });
+
+  it("releases the reservation, because no budget was actually spent", async () => {
+    const simulating = deps({
+      wallet: { ...wallet, payPrivate: async () => ({ status: "simulated" as const }) },
+    });
+    // Daily cap is 250, threshold is 50. Ten simulated 40s total 400 — well over the cap, so if a
+    // dry run held its reservation the later ones would start being denied.
+    for (let i = 0; i < 10; i++) {
+      const outcome = await spend(request({ amount: 40n }), simulating);
+      expect(outcome.status, `simulated payment ${i + 1} should not consume budget`).toBe(
+        "simulated"
+      );
+    }
+  });
+
+  it("says plainly that nothing was submitted", async () => {
+    const outcome = await spend(
+      request({ amount: 10n }),
+      deps({
+        wallet: { ...wallet, payPrivate: async () => ({ status: "simulated" as const }) },
+      })
+    );
+    expect(outcome.status === "simulated" && outcome.reason).toMatch(/not submitted/i);
+  });
+});
+
 describe("secret handling (hard rule 1)", () => {
   it("routes wallet failure text through the redactor", async () => {
     const seen: unknown[] = [];

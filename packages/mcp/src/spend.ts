@@ -31,6 +31,12 @@ export interface SpendDeps {
 
 export type SpendOutcome =
   | { status: "paid"; txHash?: string; blockNumber?: number; replayed?: boolean }
+  /**
+   * Compiled and checked against live pool state, but NOT submitted — no proving service is
+   * configured. Kept distinct from "paid" on purpose: an LLM told a payment succeeded will go on to
+   * tell the user the invoice is settled, and a dry run that lies is worse than no dry run.
+   */
+  | { status: "simulated"; reason: string }
   | { status: "denied"; code: DenyCode | "approval_unavailable"; reason: string }
   | { status: "failed"; reason: string };
 
@@ -89,6 +95,19 @@ export async function spend(req: PaymentRequest, deps: SpendDeps): Promise<Spend
       // tool result, i.e. an LLM's context, and defence in depth here costs nothing — redaction is
       // idempotent, and any future caller that supplies its own wallet is covered too.
       return { status: "failed", reason: redact(receipt.error ?? "payment failed") };
+    }
+
+    if (receipt.status === "simulated") {
+      // Nothing moved, so the budget must come back — holding it would make the caps drift away
+      // from reality every time a dry run happens.
+      resolved = true;
+      await policy.releaseReservation(reservationId);
+      return {
+        status: "simulated",
+        reason:
+          "compiled and checked against the live pool, but NOT submitted — no proving service is " +
+          "configured, so no funds moved (strk20-hackathon#147)",
+      };
     }
 
     resolved = true;

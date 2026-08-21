@@ -413,3 +413,18 @@ Untracked and added to `.gitignore` (`*.sqlite*`).
 Two follow-ons: a unit test was constructing an approval store at the default `POLICY_DB_PATH` and
 so writing to the operator's real database, now pinned to `:memory:`; and `git add -A` is the habit
 that caused this, so prefer explicit paths when the working tree has untracked runtime files.
+
+### D-025 — `simulated` is its own outcome, never reported as `paid`
+
+Found while preparing the Telegram dry run, before it could mislead anyone. `spend()` treated any
+non-`failed` receipt as success, so in simulate mode — the mode we are stuck in until #147 — a
+payment that was compiled but **never submitted** came back as `status: "paid"`. An LLM told a
+payment succeeded goes on to tell the user the invoice is settled. A dry run that lies is worse than
+no dry run at all.
+
+`simulated` is now a distinct outcome carrying an explicit "NOT submitted" reason, and it
+**releases** its reservation: nothing moved, so holding the budget would make the caps drift away
+from reality every time someone rehearses.
+
+Worth noting how it surfaced — not from a test or a typecheck, but from asking "what will the owner
+actually see when they run this?" before running it.
