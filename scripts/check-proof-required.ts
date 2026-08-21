@@ -18,15 +18,20 @@
  *   4. Submit a real `apply_actions` register call TWICE: once with no proof at all (this is the
  *      claim as written), and once with a mock proof (to separate "no proof" from "bad proof").
  *
- * Sepolia only. A rejected transaction costs testnet gas and nothing else.
+ * Runs on either network. Checks 1-5 are read-only RPC calls and cost nothing, which matters:
+ * the two pools are different classes (mainnet `0x67dddd89…`, Sepolia `0x56ab118a…`), so assuming
+ * they behave alike is exactly the move this script exists to avoid. Only check 6 submits a
+ * transaction, so on mainnet it is skipped unless KESE_MAINNET_ARMED says otherwise.
  *
  * Usage: npx tsx scripts/check-proof-required.ts
+ *        KESE_NETWORK=mainnet npx tsx scripts/check-proof-required.ts
  */
 
 import { CallData, hash, RpcProvider } from "starknet";
 import {
   buildWallet,
   createRedactor,
+  mainnetArmingError,
   resolveNetworkConfig,
   resolveSigner,
   PROOF_DEPTH,
@@ -38,7 +43,7 @@ loadDotEnv({ from: envSearchPath(import.meta.url) });
 const net = resolveNetworkConfig();
 const signer = resolveSigner();
 if (!net.value || !signer.value) throw new Error("configuration incomplete");
-if (net.value.network !== "sepolia") throw new Error("refusing to run outside Sepolia");
+const network = net.value.network;
 
 const redact = createRedactor();
 const { transfers, provider, account } = buildWallet({
@@ -114,7 +119,7 @@ function decodeShortString(value: string): string {
   });
 }
 
-console.log(`network : sepolia · pool ${pool.slice(0, 16)}…`);
+console.log(`network : ${network} · pool ${pool.slice(0, 16)}…`);
 console.log(`account : ${signer.value.address.slice(0, 16)}…\n`);
 
 // ── 1. what the deployed contract actually exposes ────────────────────────────────────────────
@@ -215,9 +220,14 @@ try {
 }
 
 // And with a fabricated proof, to separate "no proof" from "bad proof". This one goes through the
-// account, because proof facts ride in the transaction envelope rather than the calldata.
+// account, because proof facts ride in the transaction envelope rather than the calldata — which
+// makes it the only check here that spends anything.
 console.log(`\n6. the same call with a MOCK proof, to rule out "your proof was simply wrong"`);
-try {
+const blocked = mainnetArmingError(network, process.env, new Date());
+if (blocked) {
+  console.log(`   skipped — this one submits a transaction. ${blocked}`);
+  console.log(`   Check 5 above already settles the question, and costs nothing.`);
+} else try {
   const details = { proofFacts: proof.proofFacts, proof: proof.data };
   const fee = await account.estimateInvokeFee(call, details);
   const tx = await account.execute(call, { tip: 0n, resourceBounds: fee.resourceBounds, ...details });

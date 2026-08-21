@@ -1171,8 +1171,15 @@ Check 4 is the one that settles it: not a forged proof being caught, but the con
 action that carries no proof facts at all — which is the claim exactly as the guide words it, "an
 ordinary public transaction… with nothing but an RPC URL".
 
+**Run against mainnet as well, because assuming the two behave alike is the move this script exists
+to avoid** — they are different classes (`0x67dddd89…` vs `0x56ab118a…`). The answer is identical,
+line for line: 22 entrypoints, the same three non-admin, no `deposit`/`register`/`shield`, and
+`EMPTY_PROOF_FACTS` from the pool. Checks 1–5 are read-only RPC calls, so confirming it on mainnet
+cost nothing at all; only check 6 submits, and on mainnet it is skipped unless `KESE_MAINNET_ARMED`
+says otherwise.
+
 There is no entrypoint to register with, and the single entrypoint that exists will not accept an
-action without a proof. Both networks expose the same 22 entrypoints.
+action without a proof. On either network.
 
 Kept as a re-runnable script rather than a note. If the protocol ever changes, this reports the
 change instead of us rediscovering it months later.
