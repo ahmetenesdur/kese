@@ -2,7 +2,7 @@
 
 - D-001 (revised, see D-007): Discovery via ContractDiscoveryProvider (no indexer dependency). Revisit if too slow.
 - D-002 (planned): SDK route for agent spending; Wallet API (Ready) only for owner onboarding. Gate G1 fallback: wallet-cosigned mode.
-- D-003 (planned): SQLite (better-sqlite3) for policy state — single-node, transactional, zero-ops.
+- D-003 (revised, see D-012): SQLite for policy state — single-node, transactional, zero-ops.
 - D-004 (open): mainnet proving URL — requested via starkience/strk20-hackathon#147 (Aug 21); awaiting reply. Registration applied upstream as 826bf64 (PR #146).
 
 ---
@@ -174,3 +174,65 @@ Constraints it encodes, all of which are easy to get wrong by hand:
 - **Refuses to overwrite an existing signer** without `--force` — the old account may hold funds.
 
 This account is a hot test key holding faucet funds. It is not to be reused anywhere real.
+
+---
+
+## Day 2 (Aug 21, 2026) — Phase A, policy core
+
+### D-011 — A cap is an absolute ceiling, not a prompt
+
+*Owner decision.* When an amount exceeds `perTxCap` or `dailyCap`, the engine **denies outright and
+never raises an approval request**. The approval threshold only operates in the band *below* the
+cap: under `approvalThreshold` → allow; between threshold and cap → ask a human; above the cap →
+deny, full stop.
+
+Rejected alternative: let a human approve past the cap. It reads as flexible, but it turns the cap
+into a suggestion, and it hands a compromised agent an attack: fire large payments until a tired
+owner taps Approve. A limit that can be talked past is not a limit. If a genuinely large payment is
+needed, editing the policy is the right amount of friction — it is a deliberate act, not a
+notification tapped at midnight.
+
+Consequence for Phase B: the Telegram message never has to say "this is over your cap, approve
+anyway?" — the only approvals that reach a human are ones the policy already considers legitimate.
+
+### D-012 — `node:sqlite` instead of better-sqlite3 (revises D-003)
+
+Node 24 ships `node:sqlite` (`DatabaseSync`) in core, verified working on v24.19.0. D-003 named
+better-sqlite3, which is a native module needing node-gyp or a prebuilt binary.
+
+**Decision:** use the built-in. Same synchronous, transactional API; one fewer dependency; nothing
+to compile — which matters more than usual here, since we are already carrying one install
+workaround (D-005) and the judges will run `pnpm install` on an unknown machine.
+
+Two schema choices worth recording:
+
+- **Amounts are `TEXT`, not `INTEGER`.** Token amounts run at 10^18, far past
+  `Number.MAX_SAFE_INTEGER`. They are summed in JS as `bigint`; a SQL `SUM()` over these would
+  coerce to float and lose precision — in a spending limit, of all places.
+- **The store is synchronous throughout, deliberately.** The reserve path reads the rolling window
+  and writes a reservation, and those must not interleave (hard rule 5). A synchronous body cannot
+  be interrupted by the event loop, and `BEGIN IMMEDIATE` extends that to a second process. Adding
+  an `await` inside a transaction would silently reopen the race — noted in the file header so it
+  survives a future refactor.
+
+### D-013 — Phase A acceptance: what the 44 policy tests actually pin down
+
+`decide()` is deterministic and fully under test. Beyond the obvious cap/allowlist cases, the suite
+pins three things that are easy to get wrong and invisible when wrong:
+
+1. **Concurrency.** Ten parallel `decide()` calls against a cap that fits two grant exactly two.
+   This passed the first time it ran, which is the point of writing it: it proves the
+   synchronous-transaction design, rather than assuming it.
+2. **Idempotency in the dangerous direction.** A replayed key returns the original decision *and*
+   the original reservation. A key reused with a **different** request (bigger amount, different
+   recipient) is denied — returning the stored `allow` there would authorise a payment nobody
+   evaluated. Requests are fingerprinted by normalized content, so re-writing an address in padded
+   form is not mistaken for a different request.
+3. **Fail-closed on malformed input.** Address parsing throws on a hallucinated address; that
+   exception used to escape `decide()`. A crash is not a denial, so every address now parses
+   through `tryNormalizeAddress` and a bad one becomes `invalid_request`. Found by a test fixture
+   using a non-hex "cute" address — worth keeping.
+
+Also fixed along the way: config was looked up by string key, so a zero-padded token address fell
+through to `token_not_configured` — a confusing denial for a token that *is* configured. Both the
+allowlist and the cap lookups now compare addresses numerically.

@@ -19,9 +19,11 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
   - **Day-1 verdict: PARTIAL / open — do not pivot.** Nothing failed for a reason inside our control; the only blockers are externally owned. "Red" means *our* code fails, not that a third party hasn't replied. Full evidence: docs/decisions.md D-009.
 
 ## Phase A — Policy core (Days 2-3)
-- [ ] `packages/policy`: limits (per-tx / rolling daily), allowlist, SQLite persistence, **reservation lock** (concurrent spend), **idempotency store**, decision log
-- [ ] Vitest: race conditions, window boundaries, idempotent replay, fail-closed
-- Acceptance: `decide(request)` → `allow | deny(reason) | needs_approval(ticket)` deterministic and under test
+- [x] `packages/policy`: per-tx + rolling-24h caps, allowlist, SQLite persistence (`node:sqlite`, no native dep — D-012), reservation lock, idempotency store, decision log
+- [x] Vitest: **44 tests** — race conditions (10 parallel payments against a 2-payment cap), window boundaries (23h counts / 24h+1 drops), idempotent replay (incl. same-key-different-request → deny), fail-closed (storage down, malformed addresses)
+- [x] Acceptance met: `decide(request)` → `allow | deny(code, reason) | needs_approval(ticket)`, deterministic and under test
+- [x] Cap semantics decided by owner: **caps are absolute, never approvable past** (D-011)
+- [ ] Config loading (`PolicyConfig` from env/file) — deferred to Phase B, where the MCP server needs it
 
 ## Phase B — Core wallet + MCP (Days 3-5)
 - [ ] Invoke the `strk20-privacy-integration` skill at phase start (see CLAUDE.md "Skills")
