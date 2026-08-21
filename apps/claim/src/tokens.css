@@ -85,3 +85,16 @@ code, .mono { font-family: var(--mono); }
 .chip.allow { color: var(--allow); background: color-mix(in oklab, var(--allow) 14%, transparent); }
 .chip.ask   { color: var(--ask);   background: color-mix(in oklab, var(--ask) 14%, transparent); }
 .chip.deny  { color: var(--deny);  background: color-mix(in oklab, var(--deny) 14%, transparent); }
+
+/* The mark, and the lockup it forms with the wordmark.
+   It never gets a colour of its own — currentColor means it takes the colour of whatever it sits
+   in, which keeps the three verdict colours the only colours in the system. */
+.mark-svg { width: 1em; height: 1em; display: block; flex: none; }
+
+.lockup {
+  display: inline-flex; align-items: center; gap: .5rem;
+  font-family: var(--display); font-weight: 700;
+  letter-spacing: -.02em; line-height: 1;
+  text-decoration: none;
+}
+.lockup .mark-svg { width: 1.15em; height: 1.15em; }

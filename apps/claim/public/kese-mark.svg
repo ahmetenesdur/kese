@@ -1,0 +1,11 @@
+<!--
+  The Kese mark: a pouch with its lid ajar. The gap is the point — a kese only opens as far as
+  someone decided in advance, which is what a spending policy is.
+
+  Uses currentColor, so it takes the colour of whatever it sits in. It never gets a colour of its
+  own: the design system has exactly three, and they belong to the three answers a payment can get.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+  <path d="M6.08 6.9A8.5 8.5 0 0 1 17.92 6.9Z"></path>
+  <path d="M4.09 9.9A8.5 8.5 0 1 0 19.91 9.9Z"></path>
+</svg>

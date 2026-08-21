@@ -1,4 +1,6 @@
-# Kese 👛
+<img src="apps/claim/public/favicon.svg" width="44" alt="" align="left" hspace="12" vspace="2">
+
+# Kese
 
 **Private money for AI agents.** Kese gives any LLM agent a policy-guarded spending account on
 Starknet's STRK20 privacy pool — it pays privately, within hard limits, asks a human above a

@@ -1,0 +1,13 @@
+<!--
+  The favicon has to sit on a surface we do not control: the browser's tab strip, which follows the
+  user's own theme. The exported mark was fixed at #e9ecf1 and would have all but vanished on a
+  light tab. It follows the viewer instead.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style>
+    path { fill: #e9ecf1; }
+    @media (prefers-color-scheme: light) { path { fill: #08090b; } }
+  </style>
+  <path d="M6.08 6.9A8.5 8.5 0 0 1 17.92 6.9Z"></path>
+  <path d="M4.09 9.9A8.5 8.5 0 1 0 19.91 9.9Z"></path>
+</svg>
