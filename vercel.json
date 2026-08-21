@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cp apps/claim/vercel/package.json package.json && cp apps/claim/vercel/env apps/claim/.env && npm install --no-audit --no-fund",
+  "buildCommand": "npm run build",
+  "outputDirectory": "apps/claim/dist"
+}
