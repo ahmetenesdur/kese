@@ -1333,9 +1333,26 @@ difference between "correct" and "checked" is the entire lesson of this project.
 
 **Date:** 2026-08-21 · **Phase:** M · **Status:** answer good, tool fixed
 
-**The answer we needed:** Ready X reports `wallet_supportedWalletApi → 0.10.3, 0.7.2`. That clears
-the bar, so the wallet half of the G1 plan (D-046) stands, and the assumption D-050 flagged as
-unsourced is now measured rather than believed. Braavos, per another team on #121, does not.
+**The answer we needed, and it is a full one.** Against Ready X v1.0.0 on the owner's machine:
+
+```
+starknet:walletApi feature: present
+wallet_supportedWalletApi → 0.10.3, 0.7.2
+  privacy-capable version (>= 0.10): yes
+wallet_requestAccounts → 1 account
+wallet_strk20Balances → An error occurred (NOT_REGISTERED)
+```
+
+`NOT_REGISTERED` is the good answer, not a failure. It is the method running and reporting that this
+account has no viewing key on the pool yet — the normal state before a first shield. **An
+unimplemented method could not know that.** So Ready implements the STRK20 methods, the wallet half
+of the G1 plan (D-046) stands, and the assumption D-050 flagged as unsourced is now measured.
+Braavos, per another team on #121, does not.
+
+The page renders that verbatim and then adds a reading underneath, marked as ours. Showing a
+wallet's exact words is the point, but leaving someone to read "An error occurred" as a broken
+wallet when it means "working, you just have not registered yet" is a failure of the copy, not a
+virtue of restraint.
 
 **The bug.** The second half of the probe reported:
 

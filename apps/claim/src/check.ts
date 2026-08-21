@@ -44,6 +44,28 @@ function log(line: string): void {
   report.push(line);
 }
 
+/**
+ * Our reading of the wallet's answer, always printed *under* the verbatim text and never instead
+ * of it.
+ *
+ * The page's promise is to show what the wallet said. But a wallet that answers `NOT_REGISTERED`
+ * has told us something good — the method ran and knows about registration state, which an
+ * unimplemented method could not — and rendering that as "An error occurred" leaves someone
+ * reading a success as a failure. So: the wallet's words, then ours, marked as ours.
+ */
+function interpret(message: string): string {
+  if (/NOT_REGISTERED/i.test(message)) {
+    return "  reading: the method ran and answered. NOT_REGISTERED means this account has no\n  viewing key on the pool yet, which is the normal state before the first shield — an\n  unimplemented method could not know that. This wallet does STRK20.";
+  }
+  if (/not implemented|unsupported|unknown method|method not found/i.test(message)) {
+    return "  reading: this wallet has not implemented the method.";
+  }
+  if (/reject|denied|declined|cancel/i.test(message)) {
+    return "  reading: you declined the prompt — that says nothing about the wallet's support.";
+  }
+  return "  reading: unclear. Copy this and send it on rather than drawing a conclusion from it.";
+}
+
 function renderReport(extra = ""): void {
   app.innerHTML =
     `<pre id="out">${escape(report.join("\n"))}</pre>` +
@@ -117,8 +139,10 @@ async function probe(found: Found): Promise<void> {
         log(`wallet_strk20Balances → answered with ${n} entr${n === 1 ? "y" : "ies"}`);
         log(`  the method is implemented`);
       } catch (error) {
-        log(`wallet_strk20Balances → ${describeError(error)}`);
+        const message = describeError(error);
+        log(`wallet_strk20Balances → ${message}`);
         log(`  asked with a live connection, so this is the method's own answer`);
+        log(interpret(message));
       }
     }
 
