@@ -1,0 +1,20 @@
+<!--
+  Source for the Telegram bot's profile picture.
+
+  Telegram crops avatars to a circle, so the mark is centred on its true bounding box rather than
+  on the viewBox — the two differ, because the lid sits above the body and the shape is not
+  vertically symmetric. Eyeballing it put the mark 20px high. Geometry, not judgement:
+
+    lid apex    y = 6.9 - sagitta(chord 11.84, r 8.5)   = 4.50
+    body base   y = (9.9 - √(8.5² - 7.91²)) + 8.5       = 15.29
+
+  It fills 58% of the frame. Smaller reads as a dot at avatar sizes; larger loses its corners in
+  the circular crop.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#08090b"/>
+  <g transform="translate(46.38 83.17) scale(17.4682)" fill="#e9ecf1">
+    <path d="M6.08 6.9A8.5 8.5 0 0 1 17.92 6.9Z"/>
+    <path d="M4.09 9.9A8.5 8.5 0 1 0 19.91 9.9Z"/>
+  </g>
+</svg>

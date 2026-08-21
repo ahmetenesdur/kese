@@ -47,7 +47,14 @@ function hashRequest(req: PaymentRequest): string {
  * ways. Plain `record[token]` would miss a zero-padded address and fall through to
  * `token_not_configured` — a confusing denial for a token that is, in fact, configured.
  */
-function lookupByAddress<T>(record: Record<string, T>, token: string): T | undefined {
+/**
+ * Look a token up in a config map, comparing addresses rather than strings.
+ *
+ * Exported because reading a cap for a token is not only the engine's business — anything that
+ * shows the owner a limit has to normalise the same way, or `0x04b2…` misses a key stored as
+ * `0x4b2…` and the limit silently reads as unconfigured.
+ */
+export function lookupByAddress<T>(record: Record<string, T>, token: string): T | undefined {
   const wanted = tryNormalizeAddress(token);
   if (wanted === null) return undefined;
   for (const [key, value] of Object.entries(record)) {

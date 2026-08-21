@@ -8,6 +8,14 @@ export interface ApprovalTicket {
   reason: string;
   /** Human-readable budget left after this payment, so the decision has context. */
   remainingDailyBudget?: string;
+  /**
+   * The same figure in base units, alongside the cap it is measured against.
+   *
+   * The formatted string above answers "how much is left"; this answers "how much of the day is
+   * gone", which is the question someone approving on a phone is actually weighing. Raw rather
+   * than pre-rendered because how to show it is the channel's decision, not the caller's.
+   */
+  dailyBudget?: { remainingAfter: bigint; cap: bigint };
 }
 
 /**

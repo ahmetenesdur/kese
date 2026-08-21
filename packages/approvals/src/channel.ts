@@ -190,17 +190,42 @@ export function createTelegramApprovals(options: TelegramApprovalOptions): Teleg
  * Everything needed to decide has to be here: an "Approve this payment?" with no context trains the
  * owner to tap yes, which defeats the entire mechanism.
  */
-function renderMessage(ticket: ApprovalTicket): string {
+/**
+ * How much of today is gone, as ten blocks.
+ *
+ * The remaining figure already appears as a number; this is the same fact in the form the website
+ * uses, because "how close am I to the limit" is what someone approving on a phone is weighing and
+ * a bar answers it without arithmetic. Block characters only — the message is sent as plain text,
+ * deliberately (Markdown broke on the underscore in `private_transfer`), so there is no formatting
+ * to lean on.
+ */
+function budgetBar(spent: bigint, cap: bigint, width = 10): string {
+  if (cap <= 0n) return "";
+  const clamped = spent < 0n ? 0n : spent > cap ? cap : spent;
+  // Integer arithmetic throughout: these are wei-scale bigints, and going through Number to draw
+  // ten characters would be a rounding error in the one place that must not drift.
+  const filled = Number((clamped * BigInt(width)) / cap);
+  return "\u2593".repeat(filled) + "\u2591".repeat(width - filled);
+}
+
+export function renderMessage(ticket: ApprovalTicket): string {
   const lines = [
-    "🔐 Kese — approval needed",
+    // A purse, which is what "kese" means — the same thing the mark draws.
+    "\uD83D\uDC5B Kese — approval needed",
     "",
     ticket.summary,
     "",
     `Why: ${ticket.reason}`,
   ];
-  if (ticket.remainingDailyBudget) {
+
+  if (ticket.dailyBudget && ticket.remainingDailyBudget) {
+    const { remainingAfter, cap } = ticket.dailyBudget;
+    const bar = budgetBar(cap - remainingAfter, cap);
+    lines.push(bar ? `Today: ${bar} ${ticket.remainingDailyBudget} left` : `Today: ${ticket.remainingDailyBudget} left`);
+  } else if (ticket.remainingDailyBudget) {
     lines.push(`Daily budget left after this: ${ticket.remainingDailyBudget}`);
   }
+
   lines.push("", `Request: ${ticket.id}`, "No response is treated as a denial.");
   return lines.join("\n");
 }

@@ -15,6 +15,7 @@
 import { createClaimLink, describeAmount, type KeseWallet, type Network } from "@kese/core";
 import type { ClaimStore } from "./claims.js";
 import type { ApprovalChannel } from "@kese/approvals";
+import { lookupByAddress } from "@kese/policy";
 import type { DenyCode, PaymentRequest, PolicyConfig, PolicyEngine } from "@kese/policy";
 
 export type { ApprovalChannel };
@@ -189,6 +190,10 @@ async function askForApproval(
       reason: decision.reason,
       remainingDailyBudget:
         remaining === null ? undefined : describeAmount(remaining, req.token, network(deps)),
+      dailyBudget:
+        remaining === null
+          ? undefined
+          : { remainingAfter: remaining, cap: lookupByAddress(config.dailyCap, req.token) ?? 0n },
     });
     if (verdict === "approved") return "approved";
     return explainVerdict(verdict);

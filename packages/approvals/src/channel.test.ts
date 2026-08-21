@@ -12,7 +12,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTelegramApprovals, type TelegramTransport, type TelegramUpdate } from "./channel.js";
+import { renderMessage, createTelegramApprovals, type TelegramTransport, type TelegramUpdate } from "./channel.js";
 import type { ApprovalTicket } from "./types.js";
 
 const OWNER = 1676714557;
@@ -277,5 +277,49 @@ describe("recovery after a restart", () => {
     await verdict; // times out
     expect(await approvals.pendingReservations()).toEqual([]);
     approvals.stop();
+  });
+});
+
+describe("the budget bar", () => {
+  const E = 10n ** 18n;
+  const ticket = (remainingAfter: bigint, cap: bigint) => ({
+    id: "t-1",
+    reservationId: "r-1",
+    summary: "Pay 5 STRK to 0xb0b",
+    reason: "over the approval threshold",
+    remainingDailyBudget: "33 STRK",
+    dailyBudget: { remainingAfter, cap },
+  });
+
+  it("fills in proportion to what the day has already used", () => {
+    // 12 of 50 spent leaves 38; two of ten blocks.
+    expect(renderMessage(ticket(38n * E, 50n * E))).toContain("▓▓░░░░░░░░");
+  });
+
+  it("shows an empty bar when nothing has been spent", () => {
+    expect(renderMessage(ticket(50n * E, 50n * E))).toContain("░░░░░░░░░░");
+  });
+
+  it("shows a full bar when the budget is gone", () => {
+    expect(renderMessage(ticket(0n, 50n * E))).toContain("▓▓▓▓▓▓▓▓▓▓");
+  });
+
+  it("never overflows the bar, whatever the figures say", () => {
+    // Defensive: a bar longer than its own width would wrap on a phone and read as a bug.
+    for (const remaining of [-5n * E, 0n, 25n * E, 60n * E]) {
+      const bar = renderMessage(ticket(remaining, 50n * E)).match(/[▓░]+/)?.[0] ?? "";
+      expect(bar).toHaveLength(10);
+    }
+  });
+
+  it("falls back to the plain figure when there is no cap to measure against", () => {
+    const message = renderMessage(ticket(1n * E, 0n));
+    expect(message).toContain("33 STRK");
+    expect(message).not.toMatch(/[▓░]/);
+  });
+
+  it("stays plain text — no Markdown to break on an underscore", () => {
+    const message = renderMessage(ticket(38n * E, 50n * E));
+    expect(message).not.toMatch(/[*_`\[]/);
   });
 });

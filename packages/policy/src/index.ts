@@ -1,2 +1,2 @@
 export * from "./types.js";
-export { createPolicyEngine, type PolicyEngineOptions } from "./engine.js";
+export { createPolicyEngine, lookupByAddress, type PolicyEngineOptions } from "./engine.js";
