@@ -27,13 +27,25 @@ cp .env.example .env      # fill VITE_RPC_URL
 npx vite apps/claim       # or: pnpm --filter @kese/claim-page dev
 ```
 
-States can be viewed without a funded link — **dev builds only**, stripped from production:
+States can be viewed without a funded link, in any build:
 
 ```
-http://localhost:5183/?preview=claimable
-http://localhost:5183/?preview=expired
-http://localhost:5183/?preview=settled
+http://localhost:5183/?demo=claimable
+http://localhost:5183/?demo=expired
+http://localhost:5183/?demo=settled
+http://localhost:5183/?demo=unknown
 ```
+
+These ship in production rather than being stripped from it. A page that can render a convincing
+"25 STRK is waiting for you" is a page someone can be pointed at, so the risk is real — but
+stripping them meant the claimable screen, which carries the privacy notice, was the one screen
+nobody outside a dev server could review, and the public demo URL rendered as "you are in the wrong
+place". They are safe to ship because `render()` enforces two things on a sample: a banner saying
+it is one, and **no listener on the claim button** — `disabled` is the visible half of that, the
+missing listener is the real one.
+
+Visiting the page with no link at all shows what the project is, for anyone who arrived from the
+demo URL rather than from a payment.
 
 A real link is `…/#<secret>`. An unknown or malformed one is handled without touching the chain
 where possible, and reported vaguely on purpose: distinguishing "never existed" from "already

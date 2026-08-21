@@ -21,6 +21,19 @@
         "apps/dashboard/src/server.ts"
       ],
       "port": 5184
+    },
+    {
+      "name": "claim-page-prod",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "apps/claim",
+        "--port",
+        "5185",
+        "--strictPort"
+      ],
+      "port": 5185
     }
   ]
 }

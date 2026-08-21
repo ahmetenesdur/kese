@@ -34,17 +34,55 @@ const PRIVACY_NOTICE = `
     which carries its value in the clear on-chain. Your own address stays unlinked to the payer.
   </div>`;
 
+/**
+ * Shown above every sample screen, and only above sample screens.
+ *
+ * The state previews used to be stripped from production builds, because a page that can render a
+ * convincing "you have 25 STRK waiting" on demand is a page someone can be pointed at. That risk
+ * does not go away by publishing them — it goes away by making a sample unmistakable as one. So the
+ * banner is not decoration: it is the reason this is allowed to ship, and the claim button on a
+ * sample is inert.
+ */
+const SAMPLE_BANNER = `
+  <div class="sample">
+    <strong>Sample screen.</strong> Fixed example data, no payment behind it — nothing here can be
+    claimed.
+  </div>`;
+
 function escape(value: string): string {
   return value.replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!
   );
 }
 
-function render(state: ClaimState): void {
+function render(state: ClaimState, sample = false): void {
+  const banner = sample ? SAMPLE_BANNER : "";
+
   switch (state.kind) {
     case "no-link":
-      content.innerHTML = `<p class="sub">This page needs a claim link. Open the full link you were
-        sent — it ends with <code>#</code> followed by a long code.</p>`;
+      // Two audiences reach this screen: a recipient who copied half a link, and someone opening
+      // the project's public demo URL. The recipient's instruction stays first because their need
+      // is urgent; the explanation follows for everyone else, rather than leaving them on a page
+      // that reads as "you are in the wrong place".
+      content.innerHTML = `
+        <p class="sub">This page needs a claim link. Open the full link you were sent — it ends
+          with <code>#</code> followed by a long code.</p>
+        <div class="about">
+          <p><strong>What is this?</strong> Kese lets an AI agent spend from a
+            <a href="https://strk20.starknet.io" rel="noopener">STRK20</a> privacy pool on Starknet,
+            under limits its owner sets. When the agent pays someone who has never used the pool, it
+            sends a link like this one instead — the money waits in an escrow contract until they
+            collect it, and returns to the sender if nobody does.</p>
+          <p>You claim with your own wallet. This page has no server, and the code in the link is
+            never transmitted anywhere.</p>
+          <p class="samples">See the screens a recipient gets:
+            <a href="?demo=claimable">waiting</a> ·
+            <a href="?demo=settled">collected</a> ·
+            <a href="?demo=expired">expired</a> ·
+            <a href="?demo=unknown">not found</a></p>
+          <p class="repo"><a href="https://github.com/ahmetenesdur/kese" rel="noopener">Source code
+            and documentation on GitHub</a></p>
+        </div>`;
       return;
 
     case "malformed":
@@ -55,32 +93,35 @@ function render(state: ClaimState): void {
     case "unknown":
       // Deliberately vague about WHY. Distinguishing "never existed" from "already cleaned up"
       // would tell someone probing random secrets which guesses were closer.
-      content.innerHTML = `<p class="sub">No payment found for this link. It may have been
+      content.innerHTML = `${banner}<p class="sub">No payment found for this link. It may have been
         mistyped, or already claimed some time ago.</p>`;
       return;
 
     case "settled":
-      content.innerHTML = `
+      content.innerHTML = `${banner}
         <div class="amount">${escape(describeAmount(state.amount, state.token, config.network))}</div>
         <p class="sub">This payment has already been collected.</p>`;
       return;
 
     case "expired":
-      content.innerHTML = `
+      content.innerHTML = `${banner}
         <div class="amount">${escape(describeAmount(state.amount, state.token, config.network))}</div>
         <p class="sub">This link has expired and the funds have gone back to the sender. Ask them
           for a new link.</p>`;
       return;
 
     case "claimable":
-      content.innerHTML = `
+      content.innerHTML = `${banner}
         <div class="amount">${escape(describeAmount(state.amount, state.token, config.network))}</div>
         <div class="row"><span>Token</span><span>${escape(tokenSymbol(state.token, config.network))}</span></div>
         <div class="row"><span>Expires in</span><span>~${state.blocksRemaining} blocks</span></div>
         ${PRIVACY_NOTICE}
-        <button id="claim">Claim to my wallet</button>
-        <p class="status" id="status"></p>`;
-      document.getElementById("claim")!.addEventListener("click", () => void claim(state));
+        <button id="claim"${sample ? " disabled" : ""}>Claim to my wallet</button>
+        <p class="status" id="status">${sample ? "Disabled on the sample screen." : ""}</p>`;
+      // No listener at all on a sample — `disabled` is the visible half, this is the real one.
+      if (!sample) {
+        document.getElementById("claim")!.addEventListener("click", () => void claim(state));
+      }
       return;
   }
 }
@@ -193,18 +234,21 @@ function pickWallet(wallets: readonly unknown[]): Promise<unknown | null> {
 }
 
 /**
- * Dev-only state preview: `?preview=claimable|expired|settled|unknown`.
+ * Sample screens: `?demo=claimable|expired|settled|unknown`.
  *
- * The claimable screen carries the privacy notice — the single most important thing on this page —
- * and it cannot be reached without a funded link, which needs a proving service we do not have yet.
- * Rendering it on demand is how it gets reviewed at all, and it doubles as the demo path.
+ * These used to be stripped from production, on the reasoning that a page which can render a
+ * convincing "25 STRK is waiting for you" is a page someone can be pointed at. But the claimable
+ * screen carries the privacy notice — the most important sentence on this page — and it cannot be
+ * reached without a funded link, which needs a proving service we do not have. Stripping it meant
+ * the one screen that most needs review was the one nobody outside a dev server could see, and the
+ * project's public demo URL rendered as "you are in the wrong place".
  *
- * `import.meta.env.DEV` is replaced with `false` at build time, so this and everything it reaches
- * is removed from the production bundle entirely.
+ * So they ship, under two conditions that are enforced in `render()` and not merely intended:
+ * every sample carries a banner saying so, and its claim button has no listener attached. The
+ * parameter is `demo`, not `preview`, because that is what it is being used for now.
  */
-function previewState(): ClaimState | null {
-  if (!import.meta.env.DEV) return null;
-  const want = new URL(window.location.href).searchParams.get("preview");
+function sampleState(): ClaimState | null {
+  const want = new URL(window.location.href).searchParams.get("demo");
   if (!want) return null;
 
   const token = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
@@ -224,9 +268,9 @@ function previewState(): ClaimState | null {
 }
 
 async function main(): Promise<void> {
-  const preview = previewState();
-  if (preview) {
-    render(preview);
+  const sample = sampleState();
+  if (sample) {
+    render(sample, true);
     return;
   }
 
