@@ -23,6 +23,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { Account, CallData, RpcProvider, ec, hash, stark } from "starknet";
 import { MAX_VIEWING_KEY, resolveNetwork, resolveNetworkConfig } from "../packages/core/src/config.js";
+import { mainnetArmingError } from "../packages/core/src/chain.js";
 
 /**
  * OpenZeppelin account class, already declared on Sepolia (verified Aug 21, 2026 —
@@ -86,15 +87,32 @@ async function main(): Promise<void> {
   }
   loadEnv();
 
-  // --- guard: Sepolia only ---
+  // --- guard: generating keys is Sepolia-only; deploying an existing one is not ---
+  //
+  // These are two different acts and were previously refused as one. GENERATING a hot signer for
+  // mainnet stays forbidden: mainnet key custody is the owner's (CLAUDE.md). But DEPLOYING an
+  // account whose key the owner has already chosen to use creates no key and reveals nothing — it
+  // is the necessary first step after funding, and blocking it left no way to do that step at all.
+  //
+  // Mainnet deploys still have to be armed for the day, the same rule the submitter enforces, so
+  // an unattended run cannot land an account on mainnet by inheriting a stale environment.
   const network = resolveNetwork();
   if (network !== "sepolia") {
-    console.error(
-      `✗ KESE_NETWORK is "${network}". This script generates hot test keys and refuses to run\n` +
-        `  outside Sepolia — mainnet key custody is the owner's (CLAUDE.md).`
-    );
-    process.exitCode = 1;
-    return;
+    if (!flags.has("deploy")) {
+      console.error(
+        `✗ KESE_NETWORK is "${network}". This script generates hot test keys and refuses to do so\n` +
+          `  outside Sepolia — mainnet key custody is the owner's (CLAUDE.md).\n` +
+          `  Deploying an already-generated account is allowed: re-run with --deploy.`
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const blocked = mainnetArmingError(network, process.env, new Date());
+    if (blocked) {
+      console.error(`✗ ${blocked}`);
+      process.exitCode = 1;
+      return;
+    }
   }
 
   const net = resolveNetworkConfig();
