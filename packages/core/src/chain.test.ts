@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { blocksUntilProvable } from "./chain.js";
+import { mainnetArmingError, blocksUntilProvable } from "./chain.js";
 
 describe("blocksUntilProvable", () => {
   it("is zero when nothing has been submitted yet", () => {
@@ -47,5 +47,59 @@ describe("blocksUntilProvable", () => {
   it("treats a head behind the last transaction as a full wait rather than negative time", () => {
     // Can happen across a reorg or an RPC serving a stale head. Waiting is the safe reading.
     expect(blocksUntilProvable(500, 495)).toBe(15);
+  });
+});
+
+describe("mainnetArmingError", () => {
+  const day = (iso: string) => new Date(`${iso}T12:00:00Z`);
+
+  it("lets sepolia through with nothing set", () => {
+    expect(mainnetArmingError("sepolia", {}, day("2026-08-21"))).toBeNull();
+  });
+
+  it("blocks mainnet when nothing is set, and says what to set", () => {
+    const error = mainnetArmingError("mainnet", {}, day("2026-08-21"));
+    expect(error).toContain("KESE_MAINNET_ARMED is not set");
+    expect(error).toContain("2026-08-21");
+  });
+
+  it("allows mainnet when armed for today", () => {
+    expect(
+      mainnetArmingError("mainnet", { KESE_MAINNET_ARMED: "2026-08-21" }, day("2026-08-21"))
+    ).toBeNull();
+  });
+
+  it("blocks yesterday's arming — the whole point of a date", () => {
+    const error = mainnetArmingError(
+      "mainnet",
+      { KESE_MAINNET_ARMED: "2026-08-20" },
+      day("2026-08-21")
+    );
+    expect(error).toContain("2026-08-20");
+    expect(error).toContain("today is 2026-08-21");
+  });
+
+  it("rejects a truthy value that is not a date, rather than treating it as consent", () => {
+    // `yes` is what someone reaches for by reflex. It must not work, or the expiry is decorative.
+    expect(
+      mainnetArmingError("mainnet", { KESE_MAINNET_ARMED: "yes" }, day("2026-08-21"))
+    ).toContain("re-set it deliberately");
+  });
+
+  it("ignores surrounding whitespace, which .env files collect", () => {
+    expect(
+      mainnetArmingError("mainnet", { KESE_MAINNET_ARMED: "  2026-08-21 " }, day("2026-08-21"))
+    ).toBeNull();
+  });
+
+  it("uses UTC, not local time — a date is only unambiguous if the zone is fixed", () => {
+    // 23:30 UTC on the 21st is already the 22nd in Istanbul; arming must follow UTC.
+    expect(
+      mainnetArmingError(
+        "mainnet",
+        { KESE_MAINNET_ARMED: "2026-08-21" },
+        new Date("2026-08-21T23:30:00Z")
+      )
+    ).toBeNull();
   });
 });

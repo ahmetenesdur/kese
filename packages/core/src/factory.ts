@@ -105,7 +105,7 @@ export function buildWallet(options: BuildWalletOptions): LiveWallet {
   const wallet = createKeseWallet({
     transfers,
     address: signer.address,
-    submitter: createChainSubmitter({ provider, account, onWait }),
+    submitter: createChainSubmitter({ provider, account, network: net.network, onWait }),
     redact,
     // In simulate mode nothing is submitted; receipts come back as `simulated`.
     simulateNode: mode === "simulate" ? provider : undefined,

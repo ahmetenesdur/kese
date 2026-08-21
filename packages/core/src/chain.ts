@@ -5,6 +5,7 @@
 
 import type { Account, RpcProvider } from "starknet";
 import type { ExecuteResult } from "@starkware-libs/starknet-privacy-sdk";
+import type { Network } from "./config.js";
 import type { Submitter } from "./wallet.js";
 
 /**
@@ -35,13 +36,58 @@ export function blocksUntilProvable(
   return currentDepth >= depth ? 0 : depth - currentDepth;
 }
 
+/**
+ * Why arming mainnet is a date and not a flag.
+ *
+ * One keypair serves both networks here, so which chain a run touches is decided by an environment
+ * variable — and we have already had the near miss: a mainnet dry run was launched from a shell
+ * where only the mode flag stood between a rehearsal and real money. A plain `KESE_MAINNET_ARMED=yes`
+ * would fix that for exactly one day and then become part of the furniture, which is the same bug
+ * with more steps.
+ *
+ * So arming carries the UTC date it is good for. Setting it is deliberate, and it stops working by
+ * itself the next morning. Nothing needs to remember to disarm.
+ *
+ * This lives at the submitter rather than in a preflight because a preflight can be skipped: the
+ * MCP server never runs one. Every transaction that reaches the chain passes through `submit()`.
+ */
+export function mainnetArmingError(
+  network: Network,
+  env: Record<string, string | undefined>,
+  now: Date
+): string | null {
+  if (network !== "mainnet") return null;
+
+  const armed = env.KESE_MAINNET_ARMED?.trim();
+  const today = now.toISOString().slice(0, 10);
+
+  if (!armed) {
+    return (
+      "refusing to submit a mainnet transaction: KESE_MAINNET_ARMED is not set. " +
+      `Set it to today's UTC date (${today}) when you mean to spend real funds.`
+    );
+  }
+  if (armed !== today) {
+    return (
+      `refusing to submit a mainnet transaction: KESE_MAINNET_ARMED is "${armed}", ` +
+      `but today is ${today} (UTC). Arming expires daily on purpose — re-set it deliberately.`
+    );
+  }
+  return null;
+}
+
 export interface ChainSubmitterOptions {
   provider: RpcProvider;
   account: Account;
+  /** Which chain this talks to. Mainnet submissions must be armed for the day — see above. */
+  network: Network;
   /** Called while waiting for depth, so a CLI can show progress instead of appearing hung. */
   onWait?: (remaining: number) => void;
   /** Poll interval while waiting for block depth. */
   pollMs?: number;
+  /** Injected for tests. */
+  env?: Record<string, string | undefined>;
+  now?: () => Date;
 }
 
 /**
@@ -53,7 +99,15 @@ export interface ChainSubmitterOptions {
  * to a caller, since skipping it produces an invalid proof rather than an obvious error.
  */
 export function createChainSubmitter(options: ChainSubmitterOptions): Submitter {
-  const { provider, account, onWait, pollMs = 15_000 } = options;
+  const {
+    provider,
+    account,
+    network,
+    onWait,
+    pollMs = 15_000,
+    env = process.env,
+    now = () => new Date(),
+  } = options;
   let lastTxBlock: number | null = null;
 
   return {
@@ -69,6 +123,11 @@ export function createChainSubmitter(options: ChainSubmitterOptions): Submitter 
     },
 
     async submit(result: ExecuteResult) {
+      // Before anything is estimated or signed: this is the last point at which real money is
+      // still only a possibility.
+      const blocked = mainnetArmingError(network, env, now());
+      if (blocked) throw new Error(blocked);
+
       const { call, proof } = result.callAndProof;
       // The proof rides in the transaction details, alongside the fee bounds.
       const proofDetails = { proofFacts: proof.proofFacts, proof: proof.data };
