@@ -29,3 +29,6 @@ kese-policy.sqlite*
 packages/*/src/**/*.js
 packages/*/src/**/*.d.ts
 packages/*/src/**/*.js.map
+
+# Claim page build env (contains the RPC key)
+apps/claim/.env

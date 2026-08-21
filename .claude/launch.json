@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "claim-page",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "apps/claim", "--port", "5183", "--strictPort"],
+      "port": 5183
+    }
+  ]
+}

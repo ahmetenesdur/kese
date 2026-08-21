@@ -12,7 +12,6 @@
  * refund with it once the window opened. Independence holds here or nowhere.
  */
 
-import { randomBytes } from "node:crypto";
 import { hash, shortString } from "starknet";
 
 /** Domain tags, matching the constants in contracts/escrow-claim/src/escrow.cairo. */
@@ -47,7 +46,14 @@ export interface ClaimLink {
  */
 function randomFelt(): string {
   for (let attempt = 0; attempt < 8; attempt++) {
-    const value = BigInt(`0x${randomBytes(31).toString("hex")}`);
+    // WebCrypto rather than node:crypto, so this module stays isomorphic. The claim page imports
+    // `claimCommitment` from here, and a `node:crypto` import anywhere in the module graph breaks
+    // the browser build — which is how this was found: the page loaded to a blank "Loading…".
+    const bytes = new Uint8Array(31);
+    globalThis.crypto.getRandomValues(bytes);
+    const value = BigInt(
+      `0x${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`
+    );
     if (value > 0n) return `0x${value.toString(16)}`;
   }
   throw new Error("could not draw a non-zero felt; the RNG is not behaving");
