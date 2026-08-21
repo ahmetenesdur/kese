@@ -4,8 +4,23 @@
     {
       "name": "claim-page",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "apps/claim", "--port", "5183", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        "apps/claim",
+        "--port",
+        "5183",
+        "--strictPort"
+      ],
       "port": 5183
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "tsx",
+        "apps/dashboard/src/server.ts"
+      ],
+      "port": 5184
     }
   ]
 }

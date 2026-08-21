@@ -15,6 +15,9 @@
       ],
       "@kese/approvals": [
         "packages/approvals/src/index.ts"
+      ],
+      "@kese/mcp": [
+        "packages/mcp/src/index.ts"
       ]
     }
   },

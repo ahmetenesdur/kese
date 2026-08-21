@@ -11,6 +11,7 @@ export * from "./fees.js";
 export * from "./format.js";
 export * from "./claimlink.js";
 export * from "./escrow.js";
+export * from "./activity.js";
 export { DEFAULT_DENOMS } from "./notes.js";
 export * from "./wallet.js";
 export { PROOF_DEPTH, blocksUntilProvable, createChainSubmitter } from "./chain.js";

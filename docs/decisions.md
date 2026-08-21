@@ -713,3 +713,28 @@ endpoint"*, the only constraint being v0.10 API support. Our Alchemy endpoints a
 
 Self-hosting preserves the entire premise of the project; the Wallet-API route contradicts it. So if
 #147 stays silent past Day 3, **rent a machine before rewriting the architecture**.
+
+### D-038 — The dashboard is a server, and its activity view has three visibility levels
+
+**A server, not a static page.** Reading shielded balances needs the viewing key, which never leaves
+the server (hard rule 1). It binds to loopback only and has no authentication because it has no
+network path — so the public `demo_url` should be the claim page, not this. Exposing it later means
+adding auth first.
+
+**Two sources, tagged.** `policy` rows are what the agent *asked for*, refusals included — those
+never reach the chain and are the entire point of an audit view. `chain` rows are what *settled*.
+Merged without the tag, a denied payment reads as a completed one.
+
+**Attribution is asymmetric.** The pool's `Deposit` event indexes the depositor, so shields are
+attributable to us — read from the event's **first indexed key**, never `transaction.sender`, which
+is the relayer and identical for every user. `Withdrawal` encrypts the initiator and indexes only
+the recipient, so unshields appear from Kese's own record and not from Starknet. The page says this
+rather than under-reporting and looking precise.
+
+Verified against **real mainnet data**: 16 deposits across **10 distinct depositors**. Had the
+filter been reading the sender, that count would have been 1 — which is exactly how this bug hides.
+
+**Three visibility levels, not two.** The first draft labelled a claim link "private". It is not:
+the escrow pays through an *open* note, which carries its value in plaintext. The recipient stays
+hidden, the amount does not — so `amount-public` is its own level. Caught by reading the rendered
+table rather than by a test, which is now the fourth or fifth time that has been the case today.

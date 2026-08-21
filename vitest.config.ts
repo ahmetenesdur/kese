@@ -23,6 +23,7 @@ export default defineConfig({
       "@kese/core": src("core/src/index.ts"),
       "@kese/policy": src("policy/src/index.ts"),
       "@kese/approvals": src("approvals/src/index.ts"),
+      "@kese/mcp": src("mcp/src/index.ts"),
     },
   },
 });

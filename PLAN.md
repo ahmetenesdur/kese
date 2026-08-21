@@ -48,7 +48,8 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 ## Phase M — Mainnet (Day 8, Aug 28)
 - [ ] Small amounts on mainnet: register + shield + ≥3 pool transactions (hashes into `strk20.json`)
 - [ ] Deploy escrow to mainnet (if ready) → fill `contracts[]`
-- [ ] Dashboard (apps/dashboard): balances, activity list, viewing-key spend report (simple but polished — brand kit: strk20.starknet.io/brand)
+- [x] Dashboard (apps/dashboard): balances, limits with a used-budget meter, merged activity (policy attempts + on-chain shields). Loopback-only server so the viewing key stays server-side. On-chain reads use the `Deposit` event's first indexed key — verified against mainnet: 16 deposits, **10 distinct depositors** (filtering by sender would have shown 1)
+- [ ] Viewing-key spend report export (CSV) — the remaining dashboard piece
 
 ## Phase D — Demo & docs (Days 9-10, Aug 29-30)
 - [ ] Public demo deploy (Vercel) → `demo_url`

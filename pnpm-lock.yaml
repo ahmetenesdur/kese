@@ -46,6 +46,21 @@ importers:
         specifier: 10.5.0
         version: 10.5.0(typescript@5.9.3)(zod@4.4.3)
 
+  apps/dashboard:
+    dependencies:
+      '@kese/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@kese/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
+      '@kese/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
+      starknet:
+        specifier: 10.5.0
+        version: 10.5.0(typescript@5.9.3)
+
   packages/approvals: {}
 
   packages/core:
