@@ -975,3 +975,66 @@ without a real proof — that measurement is the first thing to take once a box 
 **Not run here.** Verified as far as this machine allows: argument handling, the network mapping,
 and the arm64 guard firing correctly on this laptop. Everything past the architecture check needs
 the rented instance.
+
+---
+
+## D-044 — The Day-0 guide was revised; one correction lands, two claims do not survive checking
+
+**Date:** 2026-08-21 · **Phase:** M (blocked) · **Status:** verified locally and on mainnet
+
+Upstream commit `52e7b63` rewrote the "do you need a proving service?" box in `MAINNET-DAY-0.md`,
+citing six teams blocked across #121, #124, #135 and #147. Neither issue has a maintainer reply; the
+commit is the reply. Three claims in it matter to us.
+
+**1. The anonymizer route does not avoid the prover — correct, and it costs us nothing.** An
+anonymizer is called *by the pool*, through `privacy_invoke`, from inside a transaction that was
+proved like any other. Our escrow is exactly such a contract, and we never treated it as a way
+around proving. No change.
+
+**2. "`ContractDiscoveryProvider` cannot be reached from the published package" — wrong, and we are
+the counter-example.** The premises are true: it is absent from the package entry, and the
+`exports` map has no `./internal/*` subpath. The conclusion does not follow. `dist/testing/index.js`
+line 15 re-exports it:
+
+```js
+export { ContractDiscoveryProvider, } from "../internal/contract-discovery.js";
+```
+
+and `./testing` **is** in the exports map (`.`, `./testing`, `./browser`, `./browser/testing`,
+`./abi`). `packages/core/src/factory.ts` has imported it from there since day one, and it is what
+reads balances on the dashboard and answered `discoverNotes` against the live mainnet pool during
+the dry run. The guide now tells teams that discovery on the SDK route means a hosted indexer. It
+does not.
+
+**3. "Registering and shielding need no proof, so a headless service can move value into the pool
+with nothing but an RPC URL" — this is the one that would change our situation, and it does not
+appear to be true.**
+
+It would be excellent news if it were: eligibility needs three mainnet transactions carrying a pool
+event, and register + two shields would do it with no prover at all. So it was checked properly.
+
+- **The pool has nowhere to put such a call.** Its only user-facing state-changing entrypoint is
+  `apply_actions(actions, screening)`. There is no `deposit`, no `register`, no `shield`. Everything
+  else external is admin: roles, pausing, upgrades, fee and key setters.
+- **`apply_actions` consumes the output of a proof** — `ServerAction`s, which the SDK obtains from
+  `provingProvider.prove(...)`.
+- **The SDK has no unproved path.** `AbstractPrivateTransfers.execute` is documented as "compile,
+  prove, and return the call+proof" and calls `prove` unconditionally. Across the whole `dist`
+  tree the SDK emits exactly three entrypoints: `compile_actions` (a view), `apply_actions`, and
+  `execute_writes` — and the last appears only inside `testing/helpers.js` mock fixtures.
+- **`register()` is not a separate transaction.** It is a builder flag (`builders.js:125`) that
+  becomes a client action inside the same compile → prove → `apply_actions` pipeline.
+- **A STARK proof cannot be produced on-chain**, so no intermediary contract can stand in for the
+  missing prover.
+
+**What we could not fully decode, stated so nobody treats this as settled.** Sampling real mainnet
+pool activity (11 transactions in the last 90k blocks: 4 `Deposit`, 12 `Withdrawal`, and unnamed
+events), every one is a two-call multicall — `STRK.transfer`, then a call to
+`0x127021a1b5a52d3174c2ab077c2b043c80369250d29428cee956d76ee51584f`, which is **not** the pool
+(different class hash) and is not referenced anywhere in the SDK. Presumably the app's paymaster or
+forwarder; the SDK does carry paymaster/forwarder concepts. Whatever it is, it must still reach
+`apply_actions`, because the pool exposes nothing else — but the claim deserves a question upstream
+rather than a flat contradiction.
+
+**Consequence for G1:** unchanged. No proof, no mainnet transaction, no eligibility. The rented-box
+prover (D-043) stays the plan if #147 is still silent on 23 August.
