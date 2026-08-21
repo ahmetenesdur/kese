@@ -11,6 +11,12 @@ export type Address = string;
 
 /** Canonical lower-case hex form. Throws on malformed input — prefer `tryNormalizeAddress`. */
 export function normalizeAddress(address: Address): string {
+  // `BigInt("")` and `BigInt("  ")` are both 0n, so an absent value would silently become the ZERO
+  // ADDRESS rather than an error. That is the wrong kind of answer: a missing recipient must read
+  // as missing, not as a real account that happens to be address zero.
+  if (typeof address !== "string" || address.trim() === "") {
+    throw new TypeError("address is empty");
+  }
   return `0x${BigInt(address).toString(16)}`;
 }
 
