@@ -44,10 +44,29 @@ describe("the landing page's policy console", () => {
     expect(decide(38.01, roomy).verdict).toBe("deny");
   });
 
-  it("stops at the first failing rule and never evaluates the rest", () => {
+  it("stops at the first failing rule and marks the rest as never reached", () => {
+    // Every rule comes back every time. A gate that stops at the first failure is different from
+    // one that collects reasons, and the page can only show that difference if the skipped rules
+    // are still there to be drawn.
     const d = decide(20, { ...policy, allowlisted: false });
-    expect(d.rules).toHaveLength(2);
-    expect(d.rules[d.decidedAt]!.code).toBe("recipient_not_allowlisted");
+    expect(d.rules).toHaveLength(5);
+    expect(d.rules[1]!.state).toBe("fail");
+    expect(d.rules[1]!.code).toBe("recipient_not_allowlisted");
+    expect(d.rules.slice(2).map((r) => r.state)).toEqual(["skipped", "skipped", "skipped"]);
+  });
+
+  it("blanks a skipped rule's detail, so it cannot show a figure nothing computed", () => {
+    const d = decide(20, policy);
+    const skipped = d.rules.filter((r) => r.state === "skipped");
+    expect(skipped).not.toHaveLength(0);
+    expect(skipped.every((r) => r.detail === "" && r.meter === undefined)).toBe(true);
+  });
+
+  it("marks the threshold rule as an ask, not a failure", () => {
+    // Colouring it red would say the payment was refused when a human is merely being asked.
+    const d = decide(5, policy);
+    expect(d.rules[4]!.state).toBe("ask");
+    expect(d.rules[4]!.code).toBeUndefined();
   });
 
   it("refuses a non-positive amount instead of computing with it", () => {

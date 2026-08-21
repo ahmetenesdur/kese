@@ -32,36 +32,40 @@ function escape(value: string): string {
   );
 }
 
+/** The mark each state gets. A skipped rule shows a dash: nothing was computed, so nothing is said. */
+const MARK = { pass: "✓", fail: "✕", ask: "?", skipped: "–" } as const;
+
 function render(decision: Decision): void {
   rulesList.innerHTML = decision.rules
     .map((rule, index) => {
-      const deciding = index === decision.decidedAt;
-      const failed = !rule.passed;
-      // The threshold rule "fails" into an ask, not a denial — it gets the amber mark, because
-      // colouring it red would say the payment was refused when a human is simply being asked.
-      const asking = deciding && decision.verdict === "ask";
-      const classes = ["rule", failed ? "fail" : "pass", asking ? "ask" : ""].join(" ");
-      const mark = failed ? "✕" : asking ? "?" : "✓";
-      // Staggered only while rules are being read top to bottom; instant when motion is reduced.
-      const delay = reduceMotion ? 0 : index * 70;
+      // Only stagger the rules that were actually evaluated; the skipped ones are already there,
+      // greyed, and animating them in would suggest something happened to them.
+      const delay = reduceMotion || index > decision.decidedAt ? 0 : index * 70;
+      const meter = rule.meter
+        ? `<span class="meter" aria-hidden="true">
+             <i style="width:${Math.min(100, (rule.meter.spent / rule.meter.cap) * 100)}%"></i>
+             <b style="width:${Math.min(
+               100 - (rule.meter.spent / rule.meter.cap) * 100,
+               (rule.meter.adding / rule.meter.cap) * 100
+             )}%"></b>
+           </span>`
+        : "";
       return `
-        <li class="${classes}" style="animation-delay:${delay}ms">
-          <span class="mark" aria-hidden="true">${asking ? "?" : mark}</span>
+        <li class="rule ${rule.state}" style="animation-delay:${delay}ms">
+          <span class="mark" aria-hidden="true">${MARK[rule.state]}</span>
           <span class="label">${escape(rule.label)}${
             rule.code ? ` <span class="code">${escape(rule.code)}</span>` : ""
           }</span>
-          <span class="detail">${escape(rule.detail)}</span>
+          <span class="detail">${meter}${escape(rule.detail)}</span>
         </li>`;
     })
     .join("");
 
-  const skipped = 5 - decision.rules.length;
+  const skipped = decision.rules.filter((r) => r.state === "skipped").length;
   verdictBox.innerHTML = `
     <span class="chip ${decision.verdict}">${VERDICT_LABEL[decision.verdict]}</span>
     <p>${escape(decision.headline)}${
-      skipped > 0
-        ? ` — the remaining ${skipped} check${skipped === 1 ? "" : "s"} never ran.`
-        : "."
+      skipped > 0 ? ` — ${skipped} check${skipped === 1 ? "" : "s"} never ran.` : "."
     }</p>`;
 }
 

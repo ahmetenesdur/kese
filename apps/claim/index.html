@@ -77,12 +77,33 @@
       }
       @keyframes settle { to { opacity: 1; } }
       .rule .mark { font-family: var(--mono); line-height: 1; }
+      .rule .label { color: var(--text-2); }
+      .rule .detail {
+        display: flex; align-items: center; justify-content: flex-end; gap: .6rem;
+        font-family: var(--mono); font-size: .78rem; color: var(--text-3);
+      }
+      .rule .code { font-family: var(--mono); font-size: .72rem; color: var(--deny); }
+
       .rule.pass .mark { color: var(--allow); }
       .rule.fail .mark { color: var(--deny); }
-      .rule.fail.ask .mark { color: var(--ask); }
-      .rule .label { color: var(--text-2); }
       .rule.fail .label { color: var(--text); }
-      .rule .detail { font-family: var(--mono); font-size: .78rem; color: var(--text-3); text-align: right; }
+      .rule.ask  .mark { color: var(--ask); }
+      .rule.ask  .label { color: var(--text); }
+
+      /* A rule evaluation never reached. It stays on the page because its absence is the point:
+         the gate stopped, it did not weigh this and decide it was fine. */
+      .rule.skipped { opacity: .32; }
+      .rule.skipped .mark { color: var(--text-3); }
+
+      /* The rolling budget is the one rule that is a quantity, so it gets drawn rather than
+         described: what is already spent, then what this payment would add. */
+      .meter {
+        display: inline-flex; width: 4.5rem; height: 4px; flex: none;
+        background: var(--line-2); border-radius: 999px; overflow: hidden;
+      }
+      .meter i { background: var(--text-3); }
+      .meter b { background: var(--allow); }
+      .rule.fail .meter b { background: var(--deny); }
 
       .verdict {
         display: flex; flex-wrap: wrap; align-items: center; gap: .75rem;
