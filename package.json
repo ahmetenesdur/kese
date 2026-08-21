@@ -15,6 +15,8 @@
     "smoke:simulate": "tsx scripts/day1-sepolia-smoke.ts --mode=simulate",
     "smoke:sepolia": "tsx scripts/day1-sepolia-smoke.ts --mode=service",
     "test": "node scripts/check-no-shadow.mjs && vitest run",
+    "dashboard": "pnpm --filter @kese/dashboard dev",
+    "claim": "pnpm --filter @kese/claim-page dev",
     "keys:gen": "tsx scripts/gen-smoke-keys.ts",
     "telegram:dry-run": "tsx scripts/telegram-dry-run.ts",
     "escrow:build": "bash scripts/cairo.sh build",

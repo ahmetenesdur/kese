@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
+  "bin": { "kese-mcp": "dist/main.js" },
   "scripts": {
     "build": "tsc -p .",
     "test": "vitest run",
-    "start": "tsx src/index.ts"
+    "start": "tsx src/main.ts"
   },
   "license": "MIT",
   "dependencies": {

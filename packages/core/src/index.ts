@@ -7,6 +7,7 @@
  */
 export * from "./address.js";
 export * from "./config.js";
+export * from "./env.js";
 export * from "./fees.js";
 export * from "./format.js";
 export * from "./claimlink.js";

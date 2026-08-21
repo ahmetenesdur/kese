@@ -13,11 +13,14 @@
 
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { RpcProvider } from "starknet";
 import {
   buildWallet,
   createRedactor,
+  envSearchPath,
+  loadDotEnv,
   readShields,
   resolveNetwork,
   resolveNetworkConfig,
@@ -47,11 +50,10 @@ function json(body: unknown, status = 200) {
 }
 
 async function main(): Promise<void> {
-  try {
-    process.loadEnvFile(".env");
-  } catch {
-    /* env may come from the process */
-  }
+  // Climb to the .env rather than assuming the cwd holds it: `pnpm --filter @kese/dashboard dev`
+  // runs from apps/dashboard/, where there is none, and the resulting "missing configuration"
+  // error blames the operator for a lookup failure.
+  const env = loadDotEnv({ from: envSearchPath(import.meta.url) });
 
   const redact = createRedactor();
   const net = resolveNetworkConfig();
@@ -70,8 +72,12 @@ async function main(): Promise<void> {
   }
 
   const network = resolveNetwork();
+  // Same reason, and it matters more here: a relative path opened from a different directory is
+  // not an error, it is an empty database — which renders as an agent that has never spent anything.
+  const projectRoot = env.path ? resolve(env.path, "..") : process.cwd();
+  const configuredDb = process.env.POLICY_DB_PATH ?? "./kese-policy.sqlite";
   const policy = createPolicyEngine({
-    dbPath: process.env.POLICY_DB_PATH ?? "./kese-policy.sqlite",
+    dbPath: isAbsolute(configuredDb) ? configuredDb : resolve(projectRoot, configuredDb),
   });
   const { wallet } = buildWallet({
     net: net.value,

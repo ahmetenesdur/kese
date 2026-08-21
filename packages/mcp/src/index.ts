@@ -9,3 +9,4 @@ export { spend, type ApprovalChannel, type SpendDeps, type SpendOutcome } from "
 export { loadPolicyConfig, type LoadResult } from "./config.js";
 export { createClaimStore, type ClaimRecord, type ClaimState, type ClaimStore } from "./claims.js";
 export { TOOLS } from "./tools.js";
+export { main } from "./main.js";
