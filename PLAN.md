@@ -26,8 +26,9 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - [ ] Config loading (`PolicyConfig` from env/file) — deferred to Phase B, where the MCP server needs it
 
 ## Phase B — Core wallet + MCP (Days 3-5)
-- [ ] Invoke the `strk20-privacy-integration` skill at phase start (see CLAUDE.md "Skills")
-- [ ] `packages/core`: SDK wrapper (init, register, shield, transfer, withdraw, discoverNotes) + **note denomination ladder** (notes.ts)
+- [x] Invoked the `strk20-privacy-integration` skill → `STRK20_INTEGRATION_PLAN.md` (route confirmed: SDK direct)
+- [x] `packages/core`: SDK wrapper — `KeseWallet` (register/shield/payPrivate/withdraw/balances), chain submitter with 10-block sequencing, live wiring, proof timing. Smoke script now drives the library; verified on live Sepolia
+- [ ] **note denomination ladder** (notes.ts) — Phase B2, next
 - [ ] `packages/mcp`: tools — `get_balance`, `pay_private`, `create_claim_link`, `withdraw`, `list_activity`, `get_policy`; `idempotency_key` required on all; NO path bypasses policy
 - [ ] `packages/approvals`: Telegram bot — needs_approval ticket → message (who/how much/balance impact) → approve/deny → resume
 - Acceptance: end-to-end private payment on Sepolia from Claude Desktop via MCP + Telegram approval on limit breach

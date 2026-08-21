@@ -32,34 +32,25 @@
 
 import { performance } from "node:perf_hooks";
 import { writeFileSync } from "node:fs";
-import { Account, Contract, RpcProvider } from "starknet";
+import { Account, RpcProvider } from "starknet";
 import {
-  createPrivateTransfers,
-  ProvingServiceProofProvider,
   SetupRequirement,
   type Note,
   type PrivateTransfersInterface,
-  type Proof,
-  type ProofInvocation,
-  type ProofProviderInterface,
-  type ProvingBlockId,
 } from "@starkware-libs/starknet-privacy-sdk";
-import {
-  CallMockProofProvider,
-  ContractDiscoveryProvider,
-  IndexerDiscoveryProvider,
-  Mocknet,
-} from "@starkware-libs/starknet-privacy-sdk/testing";
-import { PrivacyPoolABI } from "@starkware-libs/starknet-privacy-sdk/abi";
+import { Mocknet } from "@starkware-libs/starknet-privacy-sdk/testing";
 import {
   DEFAULT_PROVING_GAS_RESERVE_STRK,
   TOKENS,
   assessGasHeadroom,
+  buildWallet,
   createRedactor,
   resolveNetwork,
   resolveNetworkConfig,
   resolveSigner,
+  type KeseWallet,
   type NetworkConfig,
+  type Receipt,
   type SignerConfig,
 } from "../packages/core/src/index.js";
 
@@ -166,44 +157,6 @@ function heading(text: string): void {
 
 function ms(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${Math.round(value)}ms`;
-}
-
-// ---------------------------------------------------------------------------
-// Proof-provider decorator — isolates proving time from submission time
-// ---------------------------------------------------------------------------
-
-/**
- * Wraps any ProofProviderInterface to record how long each `prove()` call takes.
- *
- * "Measure: proof time, failure modes" is half of the Phase S task, and proving time is
- * otherwise buried inside `execute()` alongside discovery and calldata assembly.
- */
-class TimedProofProvider implements ProofProviderInterface {
-  readonly timings: number[] = [];
-
-  constructor(private readonly inner: ProofProviderInterface) {}
-
-  getDefaultDetails() {
-    return this.inner.getDefaultDetails();
-  }
-
-  async prove(invocation: ProofInvocation, blockIdentifier?: ProvingBlockId): Promise<Proof> {
-    const started = performance.now();
-    try {
-      return await this.inner.prove(invocation, blockIdentifier);
-    } finally {
-      this.timings.push(performance.now() - started);
-    }
-  }
-
-  invalidateNonceCache(): void {
-    this.inner.invalidateNonceCache?.();
-  }
-
-  /** ms spent proving since the last call, or undefined if nothing was proven. */
-  lastTiming(): number | undefined {
-    return this.timings.at(-1);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -580,12 +533,17 @@ interface LiveContext {
   provider: RpcProvider;
   account: Account;
   transfers: PrivateTransfersInterface;
-  prover: TimedProofProvider | null;
+  wallet: KeseWallet;
   token: string;
   amount: bigint;
   recipient: string;
 }
 
+/**
+ * All the SDK wiring now lives in `@kese/core` (`buildWallet`). This script is what proves it
+ * works against a real chain — so it must keep going through the library rather than reproducing
+ * the setup, or the integration test would be testing a copy of the code instead of the code.
+ */
 function buildLiveContext(
   mode: Mode,
   net: NetworkConfig,
@@ -593,248 +551,93 @@ function buildLiveContext(
   token: string,
   amount: bigint
 ): LiveContext {
-  const provider = new RpcProvider({ nodeUrl: net.rpcUrl });
-  const account = new Account({
-    provider,
-    address: signer.address,
-    signer: signer.privateKey,
-    cairoVersion: "1",
+  const { wallet, transfers, provider, account } = buildWallet({
+    net,
+    signer,
+    mode: mode === "service" ? "service" : "simulate",
+    redact,
+    onWait: (remaining) =>
+      process.stdout.write(`\r   waiting for block depth: ${remaining} more…      `),
   });
 
-  // Discovery: the indexer is optional. Without one we go straight at the pool over RPC —
-  // slower, but zero external dependencies (docs/decisions.md D-001).
-  const discoveryProvider = net.indexerUrl
-    ? new IndexerDiscoveryProvider(net.indexerUrl, net.poolAddress)
-    : new ContractDiscoveryProvider(poolContractFor(provider, net.poolAddress));
-
-  // `.simulate()` builds its OWN mock prover internally and never calls prove() on ours — but it
-  // still asks the configured provider for getDefaultDetails() (pool nonce, chainId) while
-  // compiling the invocation. So simulate mode needs a provider that answers that much.
-  // CallMockProofProvider is the SDK's own: it runs the invocation through the node's transaction
-  // simulation and captures what the pool would have emitted, instead of generating a proof.
-  const prover =
-    mode === "service" && net.provingServiceUrl
-      ? new TimedProofProvider(
-          new ProvingServiceProofProvider(net.provingServiceUrl, net.chainId, {
-            nodeUrl: net.rpcUrl,
-            poolAddress: net.poolAddress,
-          })
-        )
-      : null;
-
-  const provingProvider =
-    prover ?? (mode === "simulate" ? new CallMockProofProvider(provider, net.chainId) : unavailableProver());
-
-  const transfers = createPrivateTransfers({
-    account,
-    // MUST be bigint — a hex string here silently misbehaves (notes §2).
-    viewingKeyProvider: { getViewingKey: async () => signer.viewingKey },
-    provingProvider,
-    discoveryProvider,
-    poolContractAddress: net.poolAddress,
-  });
-
-  return { mode, net, signer, provider, account, transfers, prover, token, amount, recipient: recipientFor(signer) };
-}
-
-/**
- * Fail-closed placeholder (hard rule 4): in simulate mode nothing should ever reach the
- * prover. If something does, we want a loud, specific error rather than a silent fallback.
- */
-function unavailableProver(): ProofProviderInterface {
-  const fail = (): never => {
-    throw new Error(
-      "Proving service is not configured. Run with --mode=simulate, or set " +
-        "PROVING_SERVICE_URL_* once strk20-hackathon#147 is answered."
-    );
-  };
-  return { getDefaultDetails: fail, prove: fail };
+  return { mode, net, signer, provider, account, transfers, wallet, token, amount, recipient: recipientFor(signer) };
 }
 
 function recipientFor(signer: SignerConfig): string {
-  // A second registered account is ideal; self-transfer still exercises the whole private
-  // path (the SDK classifies it as `transferSelf`) and needs no second funded wallet.
+  // A second registered account is ideal; self-transfer still exercises the whole private path
+  // (the SDK classifies it as `transferSelf`) and needs no second funded wallet.
   return process.env.SMOKE_RECIPIENT_ADDRESS?.trim() || signer.address;
 }
 
 async function runLive(ctx: LiveContext): Promise<Step[]> {
   const steps: Step[] = [];
-  const tokenBig = BigInt(ctx.token);
 
-  // Readiness is a read-only question — it works identically in both live modes and tells
-  // us what the pool thinks is still missing before we spend anything on proving.
+  // Read-only, works identically in both live modes, and tells us what the pool still wants
+  // before we spend anything on proving.
   await step(steps, "discoverRequirement", async () => {
     const requirement = await ctx.transfers.discoverRequirement(ctx.recipient, ctx.token);
     return `${SetupRequirement[requirement]} (${requirement})`;
   });
 
-  let shieldedBalance = 0n;
+  let shielded = 0n;
   await step(steps, "discoverNotes", async () => {
-    const { notes } = await ctx.transfers.discoverNotes({ tokens: [tokenBig] });
-    const found = notes.get(tokenBig) ?? [];
-    shieldedBalance = found.reduce((sum, note) => sum + note.amount, 0n);
-    return `${found.length} note(s), total ${shieldedBalance}`;
+    const balances = await ctx.wallet.balances([ctx.token]);
+    shielded = balances[ctx.token] ?? 0n;
+    return `shielded balance ${shielded}`;
   });
 
-  if (ctx.mode === "simulate") {
-    await runSimulateSteps(ctx, steps, shieldedBalance);
-  } else {
-    await runServiceSteps(ctx, steps);
+  if (ctx.mode === "service") {
+    await step(steps, "register", async () => receiptOutcome(await ctx.wallet.register()));
+
+    // The pool pulls the deposit, so it needs an allowance first. This is a transparent
+    // transaction — and by the same 10-block rule its effect must settle before the deposit proof
+    // reads it, which createChainSubmitter handles.
+    await step(steps, "approve pool (transparent)", async () => {
+      const call = {
+        contractAddress: ctx.token,
+        entrypoint: "approve",
+        calldata: [ctx.net.poolAddress, `0x${ctx.amount.toString(16)}`, "0x0"],
+      };
+      const fee = await ctx.account.estimateInvokeFee(call);
+      const tx = await ctx.account.execute(call, { tip: 0n, resourceBounds: fee.resourceBounds });
+      const receipt = await ctx.provider.waitForTransaction(tx.transaction_hash);
+      if (!receipt.isSuccess()) throw new Error("approve reverted");
+      return { detail: "allowance set", txHash: tx.transaction_hash };
+    });
   }
+
+  await step(steps, `shield (${ctx.mode})`, async () =>
+    receiptOutcome(await ctx.wallet.shield(ctx.token, ctx.amount))
+  );
+
+  // Spending needs notes that already exist on-chain. In simulate mode the shield above created
+  // none — simulate() does not mutate state — so these are NOT APPLICABLE rather than broken.
+  // Reporting them red would make a healthy day-1 run look like a failure.
+  if (ctx.mode === "simulate" && shielded < ctx.amount) {
+    const why =
+      `needs ${ctx.amount} shielded, have ${shielded} — simulate() does not mutate state, so the ` +
+      `shield above created nothing on-chain. Runs once --mode=service lands a deposit.`;
+    notApplicable(steps, "private transfer (simulated)", why);
+    notApplicable(steps, "withdraw (simulated)", why);
+    return steps;
+  }
+
+  const half = ctx.amount / 2n;
+  await step(steps, `private transfer (${ctx.mode})`, async () =>
+    receiptOutcome(await ctx.wallet.payPrivate(ctx.token, half, ctx.recipient))
+  );
+  await step(steps, `withdraw (${ctx.mode})`, async () =>
+    receiptOutcome(await ctx.wallet.withdraw(ctx.token, half / 2n, ctx.signer.address))
+  );
 
   return steps;
 }
 
-/**
- * Simulate mode: compile each action against live pool state, stop before submission.
- *
- * Each step is independent — simulation does not mutate the chain, so the transfer step does not
- * see notes the shield step would have created. That is the honest limit of this mode: it
- * validates wiring and calldata, not sequencing.
- *
- * The practical consequence: the spending steps need notes that already exist on-chain. With an
- * empty shielded balance they are *not applicable*, not broken — so they are skipped with a
- * reason rather than reported as failures. Anything else would make a healthy day-1 run look red.
- */
-async function runSimulateSteps(
-  ctx: LiveContext,
-  steps: Step[],
-  shieldedBalance: bigint
-): Promise<void> {
-  const provingBlockId = await provingBlock(ctx.provider);
-
-  await step(steps, "shield (simulated)", async () => {
-    const { callAndProof } = await ctx.transfers
-      .build({ autoRegister: true, autoSetup: true, autoDiscover: { notes: "refresh" }, provingBlockId })
-      .with(ctx.token, (t) => t.deposit({ amount: ctx.amount }))
-      .surplusTo(ctx.signer.address)
-      .simulate({ node: ctx.provider });
-    return `calldata ${callAndProof.call.calldata?.length ?? 0} felts → ${callAndProof.call.entrypoint}`;
-  });
-
-  if (shieldedBalance < ctx.amount) {
-    const why =
-      `needs ${ctx.amount} shielded, have ${shieldedBalance} — simulate() does not mutate state, ` +
-      `so the shield above created nothing on-chain. Runs once --mode=service lands a deposit.`;
-    notApplicable(steps, "private transfer (simulated)", why);
-    notApplicable(steps, "withdraw (simulated)", why);
-    return;
-  }
-
-  await step(steps, "private transfer (simulated)", async () => {
-    const { callAndProof } = await ctx.transfers
-      .build({
-        autoSetup: true,
-        autoSelectNotes: "naive",
-        autoDiscover: { notes: "refresh", channels: "refresh" },
-        provingBlockId,
-      })
-      .with(ctx.token, (t) => t.transfer({ recipient: ctx.recipient, amount: ctx.amount }))
-      .surplusTo(ctx.signer.address)
-      .simulate({ node: ctx.provider });
-    return `calldata ${callAndProof.call.calldata?.length ?? 0} felts → ${callAndProof.call.entrypoint}`;
-  });
-
-  await step(steps, "withdraw (simulated)", async () => {
-    const { callAndProof } = await ctx.transfers
-      .build({
-        autoSelectNotes: "all",
-        autoDiscover: { notes: "refresh", channels: "refresh" },
-        provingBlockId,
-      })
-      .with(ctx.token, (t) => t.withdraw({ recipient: ctx.signer.address, amount: ctx.amount }))
-      .surplusTo(ctx.signer.address)
-      .simulate({ node: ctx.provider });
-    return `calldata ${callAndProof.call.calldata?.length ?? 0} felts → ${callAndProof.call.entrypoint}`;
-  });
-}
-
-/** Service mode: real proofs, real submission, real tx hashes for strk20.json. */
-async function runServiceSteps(ctx: LiveContext, steps: Step[]): Promise<void> {
-  let lastTxBlock: number | null = null;
-
-  const submit = async (label: string, build: (provingBlockId: ProvingBlockId) => Promise<{
-    callAndProof: { call: Parameters<Account["execute"]>[0]; proof: { proofFacts: string[]; data: string } };
-  }>) =>
-    step(steps, label, async () => {
-      // Every proof must sit at least 10 blocks behind the head, and the previous private tx
-      // must be that far behind too before its state is provable (SDK README, "Sequencing").
-      if (lastTxBlock != null) await waitForDepth(ctx.provider, lastTxBlock);
-      const provingBlockId = await provingBlock(ctx.provider);
-
-      const { callAndProof } = await build(provingBlockId);
-
-      const fee = await ctx.account.estimateInvokeFee(callAndProof.call, {
-        proofFacts: callAndProof.proof.proofFacts,
-        proof: callAndProof.proof.data,
-      });
-      const tx = await ctx.account.execute(callAndProof.call, {
-        tip: 0n, // v3 transactions require this (notes §4)
-        resourceBounds: fee.resourceBounds,
-        proofFacts: callAndProof.proof.proofFacts,
-        proof: callAndProof.proof.data,
-      });
-      const receipt = await ctx.provider.waitForTransaction(tx.transaction_hash);
-      if (!receipt.isSuccess()) {
-        throw new Error(`reverted: ${(receipt as { revert_reason?: string }).revert_reason ?? "unknown"}`);
-      }
-      lastTxBlock = (receipt as unknown as { block_number: number }).block_number;
-      return { detail: `block ${lastTxBlock}`, txHash: tx.transaction_hash, proveMs: ctx.prover?.lastTiming() };
-    });
-
-  await submit("register", async (provingBlockId) =>
-    ctx.transfers.build().register().execute({ provingBlockId })
-  );
-
-  // The pool pulls the deposit, so it needs an allowance first. This is a transparent tx —
-  // and by the same 10-block rule its effect must settle before the deposit proof reads it.
-  await step(steps, "approve pool (transparent)", async () => {
-    const call = {
-      contractAddress: ctx.token,
-      entrypoint: "approve",
-      calldata: [ctx.net.poolAddress, `0x${ctx.amount.toString(16)}`, "0x0"],
-    };
-    const fee = await ctx.account.estimateInvokeFee(call);
-    const tx = await ctx.account.execute(call, { tip: 0n, resourceBounds: fee.resourceBounds });
-    const receipt = await ctx.provider.waitForTransaction(tx.transaction_hash);
-    if (!receipt.isSuccess()) throw new Error("approve reverted");
-    lastTxBlock = (receipt as unknown as { block_number: number }).block_number;
-    return { detail: `allowance set`, txHash: tx.transaction_hash };
-  });
-
-  await submit("shield (deposit)", async (provingBlockId) =>
-    ctx.transfers
-      .build({ autoSetup: true, autoDiscover: { notes: "refresh", channels: "refresh" }, provingBlockId })
-      .with(ctx.token, (t) => t.deposit({ amount: ctx.amount }))
-      .surplusTo(ctx.signer.address)
-      .execute({ provingBlockId })
-  );
-
-  const half = ctx.amount / 2n;
-  await submit("private transfer", async (provingBlockId) =>
-    ctx.transfers
-      .build({
-        autoSetup: true,
-        autoSelectNotes: "naive",
-        autoDiscover: { notes: "refresh", channels: "refresh" },
-        provingBlockId,
-      })
-      .with(ctx.token, (t) => t.transfer({ recipient: ctx.recipient, amount: half }))
-      .surplusTo(ctx.signer.address)
-      .execute({ provingBlockId })
-  );
-
-  await submit("withdraw", async (provingBlockId) =>
-    ctx.transfers
-      .build({
-        autoSelectNotes: "all",
-        autoDiscover: { notes: "refresh", channels: "refresh" },
-        provingBlockId,
-      })
-      .with(ctx.token, (t) => t.withdraw({ recipient: ctx.signer.address, amount: half / 2n }))
-      .surplusTo(ctx.signer.address)
-      .execute({ provingBlockId })
-  );
+/** Turn a wallet Receipt into a step outcome, surfacing a failure as a thrown step error. */
+function receiptOutcome(receipt: Receipt): StepOutcome {
+  if (receipt.status === "failed") throw new Error(receipt.error ?? "unknown failure");
+  if (receipt.status === "simulated") return { detail: "compiled and checked by the node (not submitted)" };
+  return { detail: `block ${receipt.blockNumber}`, txHash: receipt.txHash };
 }
 
 /** provingBlockId is always head − 10: note maturity, reorg buffer, state consistency. */
@@ -1002,22 +805,6 @@ function formatUnits(value: bigint, decimals = 18): string {
 function resolveToken(net: NetworkConfig, symbol: string): string | null {
   if (symbol.startsWith("0x")) return symbol;
   return TOKENS[net.network][symbol.toUpperCase()] ?? null;
-}
-
-/**
- * ContractDiscoveryProvider takes a pool *contract*, not an address — and specifically a
- * starknet.js Contract typed against the SDK's own ABI, because it calls the pool's view methods
- * by name (`get_public_key`, `get_note`, `channel_exists`, …). A generic `{ call() }` shim does
- * not satisfy that: it typechecks through a cast and then dies at runtime on the first view call.
- */
-function poolContractFor(provider: RpcProvider, poolAddress: string) {
-  return new Contract({
-    abi: PrivacyPoolABI,
-    address: poolAddress,
-    providerOrAccount: provider,
-  }).typedv2(PrivacyPoolABI) as unknown as ConstructorParameters<
-    typeof ContractDiscoveryProvider
-  >[0];
 }
 
 async function readSdkVersion(): Promise<string | null> {

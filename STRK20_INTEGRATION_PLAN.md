@@ -74,7 +74,7 @@ Honest limits, to be repeated verbatim in UX copy and the README:
 - **Blocked:** `PROVING_SERVICE_URL_SEPOLIA` (strk20-hackathon#147). Everything below is buildable
   and testable without it; only the final on-chain submission is not.
 
-## 5. Phase B1 — `packages/core`: the SDK wrapper
+## 5. Phase B1 — `packages/core`: the SDK wrapper ✅ done 2026-08-21
 
 Lift the proven wiring out of `scripts/day1-sepolia-smoke.ts` into `KeseWallet`:
 
@@ -85,6 +85,22 @@ Lift the proven wiring out of `scripts/day1-sepolia-smoke.ts` into `KeseWallet`:
    wait between chained transactions, `autoSetup: true` on any note-creating action.
 3. `PROVING_MODE` stays a first-class concept (D-006), so core is testable with no prover.
 4. Keep the smoke script working against the new library — it becomes the integration test.
+
+**Delivered.** `wallet.ts` (KeseWallet), `chain.ts` (submitter + block-depth sequencing),
+`factory.ts` (live wiring), `proving.ts` (proof timing). `scripts/day1-sepolia-smoke.ts` now drives
+`@kese/core` rather than reproducing the setup, so the integration test exercises the shipped code.
+24 new unit tests run the SDK's **real** builder/compiler/note-selection against its in-memory pool
+— only the submit seam is swapped. Verified on live Sepolia: `discoverRequirement → Register (0)`,
+shield compiled and executed by the node in ~770 ms.
+
+Two design rules are baked into the API rather than left to callers:
+
+- **No shield-and-pay convenience method, ever.** Bundling a deposit with the transfer it funds
+  correlates the two publicly. If someone later adds one call that does both, that is a privacy
+  regression, not a convenience.
+- **Failures return receipts, not exceptions.** Every caller is on a money path that has already
+  reserved budget and must release it; `Receipt.status === "failed"` makes that part of the return
+  type instead of a try/catch each caller has to remember.
 
 ## 6. Phase B2 — `packages/core/src/notes.ts`: the denomination ladder
 
