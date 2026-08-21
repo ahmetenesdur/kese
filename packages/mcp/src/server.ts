@@ -17,7 +17,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { TOKENS, type KeseWallet, type Network } from "@kese/core";
+import { TOKENS, formatTokenAmount, tokenSymbol, type KeseWallet, type Network } from "@kese/core";
 import type { PolicyConfig, PolicyEngine } from "@kese/policy";
 import { spend, type ApprovalChannel } from "./spend.js";
 
@@ -98,7 +98,14 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
         recipient: args.recipient,
         memo: args.memo,
       },
-      { policy: deps.policy, wallet: deps.wallet, config: deps.config, approvals: deps.approvals, redact: deps.redact }
+      {
+        policy: deps.policy,
+        wallet: deps.wallet,
+        config: deps.config,
+        approvals: deps.approvals,
+        network: deps.network,
+        redact: deps.redact,
+      }
     );
     return reply(outcome);
   };
@@ -131,8 +138,8 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
         return reply({
           balances: requested.map((token) => ({
             token,
-            symbol: symbolFor(token, deps.network),
-            amount: fromBaseUnits(raw[token] ?? 0n),
+            symbol: tokenSymbol(token, deps.network),
+            amount: formatTokenAmount(raw[token] ?? 0n),
           })),
         });
       } catch (error) {
@@ -168,10 +175,10 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
       reply({
         tokens: Object.keys(deps.config.perTxCap).map((token) => ({
           token,
-          symbol: symbolFor(token, deps.network),
-          perTxCap: fromBaseUnits(deps.config.perTxCap[token]!),
-          dailyCap: fromBaseUnits(deps.config.dailyCap[token]!),
-          approvalThreshold: fromBaseUnits(deps.config.approvalThreshold[token]!),
+          symbol: tokenSymbol(token, deps.network),
+          perTxCap: formatTokenAmount(deps.config.perTxCap[token]!),
+          dailyCap: formatTokenAmount(deps.config.dailyCap[token]!),
+          approvalThreshold: formatTokenAmount(deps.config.approvalThreshold[token]!),
         })),
         allowlist: deps.config.allowlist,
       })
@@ -211,8 +218,8 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
         entries: entries.map((entry) => ({
           at: new Date(entry.at).toISOString(),
           kind: entry.kind,
-          token: symbolFor(entry.token, deps.network),
-          amount: fromBaseUnits(entry.amount),
+          token: tokenSymbol(entry.token, deps.network),
+          amount: formatTokenAmount(entry.amount),
           recipient: entry.recipient,
           decision: entry.decision,
           code: entry.code,
@@ -304,16 +311,3 @@ function bigintSafe(_key: string, value: unknown): unknown {
   return typeof value === "bigint" ? value.toString() : value;
 }
 
-function fromBaseUnits(value: bigint): string {
-  const base = 10n ** BigInt(DECIMALS);
-  const whole = value / base;
-  const fraction = (value % base).toString().padStart(DECIMALS, "0").replace(/0+$/, "");
-  return fraction === "" ? `${whole}` : `${whole}.${fraction}`;
-}
-
-function symbolFor(address: string, network: Network): string {
-  for (const [symbol, addr] of Object.entries(TOKENS[network])) {
-    if (addr.toLowerCase() === address.toLowerCase()) return symbol;
-  }
-  return address;
-}

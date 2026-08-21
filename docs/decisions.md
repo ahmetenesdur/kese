@@ -453,3 +453,31 @@ The pattern is the same one D-025 caught an hour earlier, and worth naming: **th
 matter most here are the ones that produce a confident, wrong answer.** A crash is loud. "Paid" when
 nothing was submitted, or "the owner denied" when the owner never saw it, are quiet — and both were
 found by asking what a human would actually see, not by a test.
+
+### D-027 — The approval message is the product surface that matters most
+
+The dry run worked: message delivered, buttons shown, Deny pressed, message edited to "🚫 Denied",
+payment refused in 25.4s. But the screenshot showed the message itself reading:
+
+```
+private_transfer of 60000000000000000000 (token 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d) to 0x0b0b
+Daily budget left after this: 440000000000000000000 (base units)
+```
+
+Every other boundary in Kese already speaks whole tokens — the MCP tool schemas (D-019), the policy
+config file. The one boundary with an actual **human** on the other side, deciding in seconds on a
+phone with two buttons under it, was the one still speaking base units. Counting twenty digits to
+tell 60 STRK from 600 STRK is not a decision, it is a coin flip.
+
+Formatting now lives in `@kese/core/format` (`describeAmount` → `"60 STRK"`), shared with the MCP
+server rather than duplicated, and unknown tokens shorten to `0x04718f…938d` instead of dumping 66
+characters into a notification.
+
+**Second defect in the same screenshot:** the owner pressed Deny and the outcome came back
+`code: approval_unavailable`. The approval was entirely available and the owner used it. Denial
+codes now distinguish `owner_denied` (a person said no), `approval_timeout` (nobody answered) and
+`approval_unavailable` (we never reached a person) — three different things to go and investigate.
+
+That is the fourth defect of this shape in one session (D-025, D-026 ×2, D-027 ×2). None was a
+crash; every one was a confident, wrong answer, and every one was found by looking at what a human
+actually sees rather than by a test. Worth carrying into Phase C: **run it, then read it.**

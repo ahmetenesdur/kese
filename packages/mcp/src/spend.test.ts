@@ -228,6 +228,79 @@ describe("idempotency (hard rule 3)", () => {
   });
 });
 
+describe("what the approval message actually says", () => {
+  it("states the amount in whole tokens with a symbol, not base units", async () => {
+    // The first live dry run put `60000000000000000000` in front of the owner, on a phone, with
+    // two buttons under it. Counting twenty digits to tell 60 from 600 is not a decision.
+    //
+    // Uses realistic 10^18-scale amounts rather than the mock pool's tiny ones, because the whole
+    // point is what a twenty-digit number looks like to a person.
+    const ONE = 10n ** 18n;
+    const STRK = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+    let seen = "";
+    await spend(
+      { ...request({ amount: 60n * ONE }), token: STRK },
+      deps({
+        network: "sepolia",
+        config: {
+          ...config,
+          perTxCap: { [STRK]: 100n * ONE },
+          dailyCap: { [STRK]: 500n * ONE },
+          approvalThreshold: { [STRK]: 50n * ONE },
+          allowlist: "any",
+        },
+        approvals: { request: async (t) => ((seen = t.summary), "denied") },
+      })
+    );
+    expect(seen).toContain("60 STRK");
+    expect(seen).not.toContain("60000000000000000000");
+  });
+
+  it("reports the remaining budget in whole tokens too", async () => {
+    let seen: string | undefined = "";
+    await spend(
+      request({ amount: 60n }),
+      deps({
+        approvals: { request: async (t) => ((seen = t.remainingDailyBudget), "denied") },
+      })
+    );
+    expect(seen).not.toMatch(/base units/);
+  });
+});
+
+describe("denial codes name what actually happened", () => {
+  it('reports an owner denial as "owner_denied", not "approval_unavailable"', async () => {
+    // The approval WAS available and the owner used it. Labelling that "unavailable" describes a
+    // broken integration, which is a different thing to go and investigate.
+    const outcome = await spend(
+      request({ amount: 60n }),
+      deps({ approvals: { request: async () => "denied" } })
+    );
+    expect(outcome).toMatchObject({ status: "denied", code: "owner_denied" });
+  });
+
+  it('reports a timeout as "approval_timeout"', async () => {
+    const outcome = await spend(
+      request({ amount: 60n }),
+      deps({ approvals: { request: async () => "timeout" } })
+    );
+    expect(outcome).toMatchObject({ status: "denied", code: "approval_timeout" });
+  });
+
+  it('reports an undeliverable request as "approval_unavailable"', async () => {
+    const outcome = await spend(
+      request({ amount: 60n }),
+      deps({ approvals: { request: async () => "unreachable" } })
+    );
+    expect(outcome).toMatchObject({ status: "denied", code: "approval_unavailable" });
+  });
+
+  it('reports a missing channel as "approval_unavailable"', async () => {
+    const outcome = await spend(request({ amount: 60n }), deps({ approvals: undefined }));
+    expect(outcome).toMatchObject({ status: "denied", code: "approval_unavailable" });
+  });
+});
+
 describe("simulate mode must not report a payment (honest reporting)", () => {
   it('reports "simulated", never "paid", when nothing was submitted', async () => {
     // Without this the LLM is told the payment succeeded while nothing reached the chain — and it

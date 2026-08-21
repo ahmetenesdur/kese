@@ -12,7 +12,7 @@
  * past hours later. That is why the whole execution phase sits inside a try/finally.
  */
 
-import type { KeseWallet } from "@kese/core";
+import { describeAmount, type KeseWallet, type Network } from "@kese/core";
 import type { ApprovalChannel } from "@kese/approvals";
 import type { DenyCode, PaymentRequest, PolicyConfig, PolicyEngine } from "@kese/policy";
 
@@ -27,6 +27,8 @@ export interface SpendDeps {
   redact: (input: unknown) => string;
   /** Where a withdrawal's funds go. Required for `kind: "withdraw"`. */
   withdrawTo?: string;
+  /** Used to render amounts as whole tokens in the approval message a human reads. */
+  network?: Network;
 }
 
 export type SpendOutcome =
@@ -37,7 +39,16 @@ export type SpendOutcome =
    * tell the user the invoice is settled, and a dry run that lies is worse than no dry run.
    */
   | { status: "simulated"; reason: string }
-  | { status: "denied"; code: DenyCode | "approval_unavailable"; reason: string }
+  /**
+   * `owner_denied` and `approval_unavailable` are kept apart deliberately. Both refuse the payment,
+   * but one means a person looked at it and said no, and the other means the machinery never
+   * reached a person — two entirely different things to go and investigate.
+   */
+  | {
+      status: "denied";
+      code: DenyCode | "owner_denied" | "approval_timeout" | "approval_unavailable";
+      reason: string;
+    }
   | { status: "failed"; reason: string };
 
 /** Receipt shape persisted with a committed reservation, so a replay can return it verbatim. */
@@ -78,11 +89,7 @@ export async function spend(req: PaymentRequest, deps: SpendDeps): Promise<Spend
       if (verdict !== "approved") {
         resolved = true;
         await policy.releaseReservation(reservationId);
-        return {
-          status: "denied",
-          code: "approval_unavailable",
-          reason: verdict.reason,
-        };
+        return { status: "denied", code: verdict.code, reason: verdict.reason };
       }
     }
 
@@ -128,7 +135,11 @@ export async function spend(req: PaymentRequest, deps: SpendDeps): Promise<Spend
   }
 }
 
-type ApprovalVerdict = "approved" | { reason: string };
+type ApprovalRefusal = {
+  code: "owner_denied" | "approval_timeout" | "approval_unavailable";
+  reason: string;
+};
+type ApprovalVerdict = "approved" | ApprovalRefusal;
 
 /**
  * Ask a human. Every non-approval is a denial (hard rule 4): a channel that is missing, throwing
@@ -143,6 +154,7 @@ async function askForApproval(
   const { approvals, policy, config, redact } = deps;
   if (!approvals) {
     return {
+      code: "approval_unavailable",
       reason:
         "this payment needs human approval, but no approval channel is configured — refusing rather than assuming consent",
     };
@@ -156,32 +168,49 @@ async function askForApproval(
     const verdict = await approvals.request({
       id: decision.ticketId,
       reservationId,
-      summary: summarize(req),
+      summary: summarize(req, deps.network),
       reason: decision.reason,
-      remainingDailyBudget: remaining === null ? undefined : `${remaining} (base units)`,
+      remainingDailyBudget:
+        remaining === null ? undefined : describeAmount(remaining, req.token, network(deps)),
     });
     if (verdict === "approved") return "approved";
-    return { reason: explainVerdict(verdict) };
+    return explainVerdict(verdict);
   } catch (error) {
-    return { reason: `approval channel unavailable: ${redact(error)}` };
+    return {
+      code: "approval_unavailable",
+      reason: `approval channel unavailable: ${redact(error)}`,
+    };
   }
 }
 
 /** Say what actually happened. "Could not ask" and "was refused" are different facts. */
-function explainVerdict(verdict: "denied" | "timeout" | "unreachable"): string {
+function explainVerdict(verdict: "denied" | "timeout" | "unreachable"): ApprovalRefusal {
   switch (verdict) {
     case "denied":
-      return "the owner denied this payment";
+      return { code: "owner_denied", reason: "the owner denied this payment" };
     case "timeout":
-      return "approval request timed out — treated as a denial";
+      return {
+        code: "approval_timeout",
+        reason: "approval request timed out — treated as a denial",
+      };
     case "unreachable":
-      return "the approval request could not be delivered, so the owner was never asked — refusing";
+      return {
+        code: "approval_unavailable",
+        reason:
+          "the approval request could not be delivered, so the owner was never asked — refusing",
+      };
   }
 }
 
-function summarize(req: PaymentRequest): string {
+/** Sepolia unless told otherwise — the testnet-first default, and only affects display. */
+function network(deps: SpendDeps): Network {
+  return deps.network ?? "sepolia";
+}
+
+/** One line the owner reads on a phone. Whole tokens and a symbol, never base units. */
+function summarize(req: PaymentRequest, net: Network = "sepolia"): string {
   const target = req.recipient ? ` to ${req.recipient}` : " via claim link";
-  return `${req.kind} of ${req.amount} (token ${req.token})${target}`;
+  return `${req.kind} of ${describeAmount(req.amount, req.token, net)}${target}`;
 }
 
 async function execute(req: PaymentRequest, wallet: KeseWallet, deps: SpendDeps) {
