@@ -107,7 +107,7 @@ function render(state: ClaimState, sample = false): void {
         <div class="row"><span>Token</span><span>${escape(tokenSymbol(state.token, config.network))}</span></div>
         <div class="row"><span>Expires in</span><span>~${state.blocksRemaining} blocks</span></div>
         ${PRIVACY_NOTICE}
-        <button id="claim"${sample ? " disabled" : ""}>Claim to my wallet</button>
+        <button class="claim" id="claim"${sample ? " disabled" : ""}>Claim to my wallet</button>
         <p class="status" id="status">${sample ? "Disabled on the sample screen." : ""}</p>`;
       // No listener at all on a sample — `disabled` is the visible half, this is the real one.
       if (!sample) {

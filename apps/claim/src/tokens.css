@@ -1,0 +1,87 @@
+/*
+ * One design system, two pages.
+ *
+ * The landing page and the claim page are the same product seen from two sides, and they used to
+ * look like two products. Everything shared lives here so they cannot drift again.
+ *
+ * There is no brand colour, deliberately. Kese is a gate: every payment gets one of three answers.
+ * So the only colours in the system are those answers, and everything else is ground, line and
+ * type. A decorative fourth would compete with the one thing the palette is for.
+ */
+
+:root {
+  --ground: #08090b;
+  --raise: #0e1014;
+  --raise-2: #14171d;
+  --line: #1c1f26;
+  --line-2: #2a2e37;
+
+  --text: #e9ecf1;
+  --text-2: #9aa1ae;
+  --text-3: #666d7a;
+
+  --allow: #5fbf8f;
+  --ask: #dfae5c;
+  --deny: #e0705c;
+
+  --display: "Familjen Grotesk", system-ui, sans-serif;
+  --body: "Inter Tight", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; border-radius: 2px; }
+
+h1, h2, h3 {
+  font-family: var(--display);
+  margin: 0;
+  letter-spacing: -.03em;
+  text-wrap: balance;
+}
+
+code, .mono { font-family: var(--mono); }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: .72rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* Present for screen readers, absent for everyone else. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+
+/* The verdict chip — the one component both pages share, because it is the product's vocabulary. */
+.chip {
+  font-family: var(--mono);
+  font-size: .7rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: .3rem .6rem;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.chip.allow { color: var(--allow); background: color-mix(in oklab, var(--allow) 14%, transparent); }
+.chip.ask   { color: var(--ask);   background: color-mix(in oklab, var(--ask) 14%, transparent); }
+.chip.deny  { color: var(--deny);  background: color-mix(in oklab, var(--deny) 14%, transparent); }

@@ -4,7 +4,7 @@ Two pages, one static deployment — this is the project's public face.
 
 | | |
 |---|---|
-| `/` | The landing page. What Kese is, and a console that answers the way the policy engine does. No chain access, no wallet, nothing to leak — 2.9 kB of JavaScript. |
+| `/` | The landing page. One idea — a console that answers the way the policy engine does — and nothing competing with it. No chain access, no wallet, 2.9 kB of JavaScript. |
 | `/claim` | The page a claim-link recipient lands on. |
 
 Static, because the claim secret rides in the URL **fragment** and a server is a place that could
@@ -71,3 +71,16 @@ claimed" would tell someone probing random secrets which guesses were closer.
   (strk20-hackathon#147). The wallet API here was taken from the WalletAccount guide rather than
   guessed — an earlier draft guessed `connect({ modalMode })`, which is get-starknet v3/v4 and does
   not exist in v6.
+
+## Design
+
+Both pages share `src/tokens.css`, and that is the point: they were drifting into two products.
+
+There is no brand colour. Kese is a gate, so the only colours in the system are the three answers
+a payment can get — allow, ask, deny — and everything else is ground, line and type. The claim
+page's privacy warning is amber because it is a caveat; its claim button is jade because it is
+permission. A decorative fourth colour would compete with the one thing the palette is for.
+
+The first landing page had six feature cells, a table of facts and a four-item list of caveats.
+All true, all defensible, and together they buried the one thing worth understanding. It now says
+one thing and shows it working.
