@@ -141,6 +141,9 @@ secret never reaches a server in a request line or a referrer header.
 pnpm build
 ```
 
+`.mcp.json` in this repo already does it for Claude Code — open the project and the tools are
+there. For any other MCP client:
+
 ```json
 {
   "mcpServers": {
@@ -152,6 +155,9 @@ pnpm build
   }
 }
 ```
+
+There is no Kese agent to install. The agent is whichever model connects — which is the point: this
+is a wallet any MCP client can be given, not a bot with a wallet inside it.
 
 It reads the rest of its configuration from the repo's `.env`, which it locates by climbing from
 its own directory — your MCP client can spawn it from anywhere. Anything already in the

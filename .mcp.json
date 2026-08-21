@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "kese": {
+      "command": "node",
+      "args": ["packages/mcp/dist/main.js"],
+      "env": {
+        "KESE_NETWORK": "sepolia"
+      }
+    }
+  }
+}
