@@ -10,6 +10,7 @@
 import { describeAmount, tokenSymbol } from "@kese/core/format";
 import { escrowClaimCalldata } from "@kese/core/escrow";
 import { lookupClaim, secretFromUrl, type ClaimState } from "./claim.js";
+import { isPrivacyCapable } from "./wallet-capability.js";
 
 const config = {
   rpcUrl: import.meta.env.VITE_RPC_URL as string,
@@ -160,14 +161,11 @@ async function claim(state: Extract<ClaimState, { kind: "claimable" }>): Promise
 
     // Capability check by VERSION, on the WALLET — never by calling a data method. Probing
     // strk20Balances would make the wallet prompt the visitor to share balances this page has no
-    // business seeing, to answer a question a version number already answers.
+    // business seeing, to answer a question a version number already answers. The rule itself
+    // lives in wallet-capability.ts, shared with the diagnostic page.
     const { WalletAccountV6, walletV6 } = await import("starknet");
     const versions = await walletV6.supportedWalletApi(wallet as never).catch(() => [] as string[]);
-    const privacyCapable = versions.some((v) => {
-      const [major, minor] = v.split(".").map(Number);
-      return (major ?? 0) > 0 || (minor ?? 0) >= 10;
-    });
-    if (!privacyCapable) {
+    if (!isPrivacyCapable(versions)) {
       setStatus("This wallet does not support STRK20 private payments. Use Ready to claim this payment.");
       button.disabled = false;
       return;

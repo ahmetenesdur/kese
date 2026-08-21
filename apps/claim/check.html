@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wallet check — Kese</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Inter+Tight:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <style>
+      @import "./src/tokens.css";
+
+      body { display: grid; place-items: start center; min-height: 100vh; padding: 3rem 1.5rem; }
+      main { width: 100%; max-width: 32rem; }
+
+      h1 { font-size: 1.35rem; font-weight: 600; margin: .4rem 0 0; }
+      .sub { margin: .6rem 0 0; color: var(--text-2); font-size: .92rem; }
+
+      .card {
+        margin: 1.75rem 0 0;
+        background: var(--raise);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 1.25rem;
+      }
+
+      button {
+        font: inherit; font-size: .9rem; font-weight: 500;
+        color: var(--ground); background: var(--text);
+        border: 0; border-radius: 8px; padding: .6rem 1rem; cursor: pointer;
+      }
+      button:hover { filter: brightness(.92); }
+      button:disabled { opacity: .45; cursor: not-allowed; }
+      button.quiet { color: var(--text); background: transparent; border: 1px solid var(--line-2); }
+
+      .wallets { display: flex; flex-direction: column; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+      .wallets li { display: flex; align-items: center; gap: .75rem; }
+      .wallets .name { flex: 1; font-weight: 500; }
+      .wallets img { width: 22px; height: 22px; border-radius: 5px; }
+
+      pre {
+        margin: 1rem 0 0; padding: .9rem 1rem;
+        background: var(--raise-2); border: 1px solid var(--line);
+        border-radius: 9px;
+        font-family: var(--mono); font-size: .78rem; line-height: 1.6;
+        color: var(--text-2);
+        white-space: pre-wrap; word-break: break-word;
+      }
+
+      .note { margin: 1rem 0 0; font-size: .82rem; color: var(--text-3); }
+      .row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-top: 1rem; }
+      .foot { margin: 2rem 0 0; font-size: .8rem; color: var(--text-3); }
+      .foot a { text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="lockup" style="font-size:.95rem"><svg class="mark-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.08 6.9A8.5 8.5 0 0 1 17.92 6.9Z"></path><path d="M4.09 9.9A8.5 8.5 0 1 0 19.91 9.9Z"></path></svg>kese</span>
+      <p class="eyebrow" style="margin-top:1.75rem">Diagnostic</p>
+      <h1>Does your wallet do STRK20?</h1>
+      <p class="sub">
+        Not every Starknet wallet implements the STRK20 methods yet, and there is no published list
+        of which ones do. This asks your wallet directly and shows you exactly what it said.
+      </p>
+
+      <div class="card" id="app">
+        <p class="sub" style="margin:0">Looking for wallets…</p>
+      </div>
+
+      <p class="foot">
+        Nothing is sent anywhere — this page has no server. <a href="/">What is Kese?</a>
+      </p>
+    </main>
+    <script type="module" src="/src/check.ts"></script>
+  </body>
+</html>

@@ -6,6 +6,7 @@ Two pages, one static deployment — this is the project's public face.
 |---|---|
 | `/` | The landing page. One idea — a console that answers the way the policy engine does — and nothing competing with it. No chain access, no wallet, 2.9 kB of JavaScript. |
 | `/claim` | The page a claim-link recipient lands on. |
+| `/check` | A diagnostic: does your wallet implement the STRK20 methods? Not every Starknet wallet does, and there is no published list — another team reported Braavos answering "Not implemented" on mainnet ([strk20-hackathon#121](https://github.com/starkience/strk20-hackathon/issues/121)). It asks your wallet and shows you what it said, verbatim. |
 
 Static, because the claim secret rides in the URL **fragment** and a server is a place that could
 log it. The claim page moved off `/` when the landing page arrived, which was the only free moment

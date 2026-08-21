@@ -18,6 +18,8 @@ export default defineConfig({
       input: {
         index: fileURLToPath(new URL("index.html", import.meta.url)),
         claim: fileURLToPath(new URL("claim.html", import.meta.url)),
+        // A diagnostic, not part of the product: does the owner's wallet implement STRK20?
+        check: fileURLToPath(new URL("check.html", import.meta.url)),
       },
     },
   },
