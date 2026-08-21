@@ -32,7 +32,7 @@
 
 import { performance } from "node:perf_hooks";
 import { writeFileSync } from "node:fs";
-import { Account, RpcProvider } from "starknet";
+import { Account, Contract, RpcProvider } from "starknet";
 import {
   createPrivateTransfers,
   ProvingServiceProofProvider,
@@ -45,10 +45,12 @@ import {
   type ProvingBlockId,
 } from "@starkware-libs/starknet-privacy-sdk";
 import {
+  CallMockProofProvider,
   ContractDiscoveryProvider,
   IndexerDiscoveryProvider,
   Mocknet,
 } from "@starkware-libs/starknet-privacy-sdk/testing";
+import { PrivacyPoolABI } from "@starkware-libs/starknet-privacy-sdk/abi";
 import {
   TOKENS,
   createRedactor,
@@ -568,8 +570,11 @@ function buildLiveContext(
     ? new IndexerDiscoveryProvider(net.indexerUrl, net.poolAddress)
     : new ContractDiscoveryProvider(poolContractFor(provider, net.poolAddress));
 
-  // In simulate mode the proving provider is never called — `.simulate()` swaps in the SDK's
-  // own mock prover. We still must pass something that satisfies the interface.
+  // `.simulate()` builds its OWN mock prover internally and never calls prove() on ours — but it
+  // still asks the configured provider for getDefaultDetails() (pool nonce, chainId) while
+  // compiling the invocation. So simulate mode needs a provider that answers that much.
+  // CallMockProofProvider is the SDK's own: it runs the invocation through the node's transaction
+  // simulation and captures what the pool would have emitted, instead of generating a proof.
   const prover =
     mode === "service" && net.provingServiceUrl
       ? new TimedProofProvider(
@@ -580,11 +585,14 @@ function buildLiveContext(
         )
       : null;
 
+  const provingProvider =
+    prover ?? (mode === "simulate" ? new CallMockProofProvider(provider, net.chainId) : unavailableProver());
+
   const transfers = createPrivateTransfers({
     account,
     // MUST be bigint — a hex string here silently misbehaves (notes §2).
     viewingKeyProvider: { getViewingKey: async () => signer.viewingKey },
-    provingProvider: prover ?? unavailableProver(),
+    provingProvider,
     discoveryProvider,
     poolContractAddress: net.poolAddress,
   });
@@ -623,15 +631,16 @@ async function runLive(ctx: LiveContext): Promise<Step[]> {
     return `${SetupRequirement[requirement]} (${requirement})`;
   });
 
+  let shieldedBalance = 0n;
   await step(steps, "discoverNotes", async () => {
     const { notes } = await ctx.transfers.discoverNotes({ tokens: [tokenBig] });
     const found = notes.get(tokenBig) ?? [];
-    const total = found.reduce((sum, note) => sum + note.amount, 0n);
-    return `${found.length} note(s), total ${total}`;
+    shieldedBalance = found.reduce((sum, note) => sum + note.amount, 0n);
+    return `${found.length} note(s), total ${shieldedBalance}`;
   });
 
   if (ctx.mode === "simulate") {
-    await runSimulateSteps(ctx, steps);
+    await runSimulateSteps(ctx, steps, shieldedBalance);
   } else {
     await runServiceSteps(ctx, steps);
   }
@@ -642,11 +651,19 @@ async function runLive(ctx: LiveContext): Promise<Step[]> {
 /**
  * Simulate mode: compile each action against live pool state, stop before submission.
  *
- * Each step is independent — simulation does not mutate the chain, so the transfer step
- * does not see notes created by the shield step. That's the honest limit of this mode:
- * it validates wiring and calldata, not sequencing.
+ * Each step is independent — simulation does not mutate the chain, so the transfer step does not
+ * see notes the shield step would have created. That is the honest limit of this mode: it
+ * validates wiring and calldata, not sequencing.
+ *
+ * The practical consequence: the spending steps need notes that already exist on-chain. With an
+ * empty shielded balance they are *not applicable*, not broken — so they are skipped with a
+ * reason rather than reported as failures. Anything else would make a healthy day-1 run look red.
  */
-async function runSimulateSteps(ctx: LiveContext, steps: Step[]): Promise<void> {
+async function runSimulateSteps(
+  ctx: LiveContext,
+  steps: Step[],
+  shieldedBalance: bigint
+): Promise<void> {
   const provingBlockId = await provingBlock(ctx.provider);
 
   await step(steps, "shield (simulated)", async () => {
@@ -657,6 +674,15 @@ async function runSimulateSteps(ctx: LiveContext, steps: Step[]): Promise<void> 
       .simulate({ node: ctx.provider });
     return `calldata ${callAndProof.call.calldata?.length ?? 0} felts → ${callAndProof.call.entrypoint}`;
   });
+
+  if (shieldedBalance < ctx.amount) {
+    const why =
+      `needs ${ctx.amount} shielded, have ${shieldedBalance} — simulate() does not mutate state, ` +
+      `so the shield above created nothing on-chain. Runs once --mode=service lands a deposit.`;
+    notApplicable(steps, "private transfer (simulated)", why);
+    notApplicable(steps, "withdraw (simulated)", why);
+    return;
+  }
 
   await step(steps, "private transfer (simulated)", async () => {
     const { callAndProof } = await ctx.transfers
@@ -796,6 +822,17 @@ async function waitForDepth(provider: RpcProvider, sinceBlock: number, depth = 1
 
 type StepOutcome = string | { detail: string; txHash?: string; proveMs?: number };
 
+/**
+ * Record a step that was deliberately not run because its precondition does not hold.
+ *
+ * Distinct from the cascade-skip inside `step()`: nothing went wrong here, so this must not
+ * colour the gate verdict. Reported, never hidden.
+ */
+function notApplicable(steps: Step[], name: string, reason: string): void {
+  steps.push({ name, status: "skipped", ms: 0, detail: reason });
+  console.log(`${ICON.skipped} ${name.padEnd(30)} n/a — ${reason}`);
+}
+
 async function step(steps: Step[], name: string, run: () => Promise<StepOutcome>): Promise<void> {
   // Fail closed: once a step fails the chain of state it produces is gone, so everything
   // downstream is reported as skipped rather than attempted against unknown state.
@@ -930,20 +967,20 @@ function resolveToken(net: NetworkConfig, symbol: string): string | null {
   return TOKENS[net.network][symbol.toUpperCase()] ?? null;
 }
 
-/** ContractDiscoveryProvider wants a callable pool contract, not an address. */
+/**
+ * ContractDiscoveryProvider takes a pool *contract*, not an address — and specifically a
+ * starknet.js Contract typed against the SDK's own ABI, because it calls the pool's view methods
+ * by name (`get_public_key`, `get_note`, `channel_exists`, …). A generic `{ call() }` shim does
+ * not satisfy that: it typechecks through a cast and then dies at runtime on the first view call.
+ */
 function poolContractFor(provider: RpcProvider, poolAddress: string) {
-  return {
-    async call(entrypoint: string, calldata: unknown[]) {
-      return provider.callContract({
-        contractAddress: poolAddress,
-        entrypoint,
-        calldata: calldata as string[],
-      });
-    },
+  return new Contract({
+    abi: PrivacyPoolABI,
     address: poolAddress,
-    // The SDK's PoolContractInterface is structural; anything it needs beyond `call`
-    // surfaces loudly here rather than silently returning wrong state.
-  } as unknown as ConstructorParameters<typeof ContractDiscoveryProvider>[0];
+    providerOrAccount: provider,
+  }).typedv2(PrivacyPoolABI) as unknown as ConstructorParameters<
+    typeof ContractDiscoveryProvider
+  >[0];
 }
 
 async function readSdkVersion(): Promise<string | null> {

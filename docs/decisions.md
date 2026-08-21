@@ -86,34 +86,71 @@ conflict is with the notes themselves; `docs/strk20-notes.md` has been amended.
 4. **Stale README examples (not the notes' fault, but worth pinning).** The SDK README shows
    `simulate({ provider })` — the type is `{ node }`; and a JSDoc example shows `deposit(100n)` —
    the type is `deposit({ amount })`. Trust `dist/interfaces.d.ts`.
-5. **Not a correction:** notes §2's `provingProvider: { url, chainId }` is valid. The factory accepts
+5. **`ContractDiscoveryProvider` needs a *typed* pool contract.** It calls the pool's view methods
+   by name (`get_public_key`, `get_note`, `channel_exists`, …), so it wants
+   `new Contract({ abi: PrivacyPoolABI, address, providerOrAccount }).typedv2(PrivacyPoolABI)` —
+   the ABI is exported from the `/abi` subpath. A generic `{ call() }` shim typechecks through a
+   cast and then dies at runtime on the first view call; that is exactly what happened on the first
+   live run.
+6. **`simulate()` still needs a proving provider.** It builds its own `CallMockProofProvider`
+   internally and never calls `prove()` on the configured one — but `createProofInvocation()` asks
+   the configured provider for `getDefaultDetails()` (pool nonce, chainId) while compiling. Pass
+   `new CallMockProofProvider(node, chainId)` in simulate mode; a stub that throws on every method
+   will fail at compile time, not proving time.
+7. **Not a correction:** notes §2's `provingProvider: { url, chainId }` is valid. The factory accepts
    `ProofProviderInterface | ProofProviderConfig` and builds the production provider from a config.
 
 ### D-009 — Gate G1 status at end of Day 1: **PARTIAL / open — do not pivot**
 
-Evidence (`smoke-report*.json`, reproduce with `pnpm smoke:mock` / `pnpm smoke:simulate`):
+Evidence (`smoke-report*.json`; reproduce with `pnpm smoke:mock` / `pnpm smoke:simulate`).
 
-- **`--mode=mock`: 7/7 steps pass.** register (both parties) → shield → discoverNotes → private
-  transfer → *recipient-side note verification* → withdraw. Our builder chains, channel setup and
-  note handling are correct.
-- **`--mode=simulate` preflight: all chain-side checks green.** Sepolia RPC reachable (spec
-  `0.10.3-rc.0`), pool live at `0x0254a6…0d91` (class `0x56ab11…23b2`), STRK token live,
-  `provingBlockId = head − 10` resolvable.
-- **Blocked, precisely:**
-  | What | Owner | Clears when |
-  |---|---|---|
-  | `ACCOUNT_ADDRESS` / `ACCOUNT_PRIVATE_KEY` / `VIEWING_KEY` unset | Enes | a funded, deployed Sepolia signer exists |
-  | `PROVING_SERVICE_URL_SEPOLIA` unset | upstream | strk20-hackathon#147 is answered |
-  | `read:packages` scope (D-005) | Enes | `gh auth refresh -h github.com -s read:packages` |
+**`--mode=mock`: 7/7 steps pass.** register (both parties) → shield → discoverNotes → private
+transfer → *recipient-side note verification* → withdraw. Builder chains, channel setup and note
+handling are correct.
 
-**Nothing failed for a reason inside our control**, which is the distinction G1 actually turns on.
-One bug was found and fixed rather than papered over: a deposit needs `autoSetup: true` because a
-note cannot be created before its **token subchannel** exists (the mock pool's misleading
-`Token <n> does not exist` is a *subchannel* assertion, not a missing ERC-20).
+**`--mode=simulate`: runs against the live Sepolia pool with the real signer.** Preflight fully
+green — RPC (spec `0.10.3-rc.0`), pool `0x0254a6…0d91`, STRK token, account
+`0x76bdc7…4062` deployed and funded (2999.94 STRK), `provingBlockId = head − 10`. Then:
 
-**Therefore G1 stays open.** The PLAN.md trigger for the Wallet-API fallback is "still red by end of
-Day 3" — red means *our* code fails, not that a third party has not replied yet. Re-run
-`pnpm smoke:sepolia` the moment the signer and proving URL land; that run, not this one, decides G1.
+| Step | Result |
+|---|---|
+| `discoverRequirement` | `Register (0)` — the live pool correctly reports our fresh account as unregistered |
+| `discoverNotes` | 0 notes — correct, nothing shielded yet |
+| `shield (simulated)` | **56 felts of `apply_actions` calldata, node-simulated, ~670 ms** |
+| `private transfer`, `withdraw` | *not applicable* — see below |
+
+The shield simulation is the strongest signal available today: `CallMockProofProvider` runs the
+invocation through the node's transaction simulation and captures what the pool would have emitted.
+The pool contract really executed our calldata.
+
+The two spending steps are **not applicable, not broken**. `simulate()` does not mutate state, so
+the shield above created nothing on-chain, and there are no notes to spend. Landing a real deposit
+needs a real STARK proof — every pool transaction goes through `apply_actions` with `proof` +
+`proofFacts`, and a mock proof will not verify on-chain. So this is precisely the ceiling of what is
+reachable without the proving service; the script reports it as a skip with a reason rather than a
+red failure.
+
+**Blocked, precisely:**
+
+| What | Owner | Status |
+|---|---|---|
+| Sepolia signer | Enes | ✅ **cleared** — generated by `pnpm keys:gen`, deployed in `0x300f9d…4ba1` |
+| `PROVING_SERVICE_URL_SEPOLIA` | upstream | ⛔ open — strk20-hackathon#147 |
+| `read:packages` scope (D-005) | Enes | ⛔ open — `gh auth refresh -h github.com -s read:packages` |
+
+**Nothing failed for a reason inside our control**, which is the distinction G1 turns on. Two real
+bugs were found by running rather than by reading, and both are fixed:
+
+1. A deposit needs `autoSetup: true` — a note cannot be created before its **token subchannel**
+   exists. The mock pool's `Token <n> does not exist` is a *subchannel* assertion, not a missing
+   ERC-20.
+2. `ContractDiscoveryProvider` needs a typed pool `Contract`, not a `{ call() }` shim (D-008.5).
+   This only surfaced against the live chain — mock mode passes either way, because `Mocknet`
+   supplies its own pool object.
+
+**Therefore G1 stays open.** PLAN.md's trigger for the Wallet-API fallback is "still red by end of
+Day 3", and red means *our* code fails — not that a third party has not replied. `pnpm smoke:sepolia`
+is wired and waiting; that run, not this one, decides G1.
 
 ### D-010 — Sepolia signer is generated by tooling, not by hand
 
