@@ -1196,3 +1196,53 @@ change instead of us rediscovering it months later.
 waiting on #121, #124, #135 and #147, and some of them will read "no proof needed" and spend a day
 proving it to themselves, as we nearly did. Reporting it is the useful move; it is the owner's call,
 since it is their name on the comment.
+
+---
+
+## D-048 — Ruling ourselves out, before telling anyone else they are wrong
+
+**Date:** 2026-08-21 · **Phase:** M · **Status:** verified
+
+D-047 established that the pool refuses an action with no proof facts. Before reporting that
+upstream, the opposite question deserves the same rigour: is the fault ours? Seven checks, each
+closing a door someone could reasonably point at.
+
+| Door | Check | Result |
+|---|---|---|
+| Wrong pool | Our `POOL_ADDRESS_MAINNET` vs the one in `docs/MAINNET-DAY-0.md` | byte-identical |
+| Wrong SDK | Our pinned version vs the guide's | both `0.14.3-rc.5` |
+| Dead pool | Recent transactions against that same address | 5 of 5 `SUCCEEDED`, most recent ~40 h old |
+| Broken account | Deployed and funded on both networks | mainnet block 13639611, 106 STRK |
+| Malformed call | Does the contract even understand our calldata? | **yes — see below** |
+| Generic error | Is `EMPTY_PROOF_FACTS` just what it says to everything? | **no — see below** |
+| Network-specific | Same run on both chains, different class hashes | identical, line for line |
+
+**The control experiment is the one that matters.** If our register call were malformed, the
+contract might reject it early for an unrelated reason and `EMPTY_PROOF_FACTS` would mean nothing.
+So the same entrypoint was called with deliberately broken input:
+
+| Sent | Answer |
+|---|---|
+| our well-formed register call | `EMPTY_PROOF_FACTS` |
+| empty calldata | `Failed to deserialize param #1` |
+| garbage felts | `Failed to deserialize param #1` |
+| our call with the last felt flipped | `Failed to deserialize param #2` |
+| our call truncated | `Failed to deserialize param #1` |
+
+The contract **deserialises our call successfully** — it understands the register action perfectly
+well — and then refuses it on exactly one ground: no proof facts. Malformed input produces a
+visibly different error. Identical on Sepolia and mainnet.
+
+**One loose end, stated rather than hidden.** `starknet_getTransactionByHash` returns no
+`proof_facts` field for successful pool transactions, so the on-chain record cannot be used to
+*show* other people's proofs. That does not weaken anything: the sequencer clearly parses the field
+(our own submission was refused with "Invalid proof facts: Proof version…"), and the contract
+clearly requires it. Successful transactions must therefore carry proofs, whether or not the RPC
+hands them back. It is worth knowing before someone asks.
+
+**Also noticed, unrelated and unresolved:** a live mainnet pool transaction carries
+`tip: 0xb2d05e00`, not zero, while `docs/strk20-notes.md` records "v3 transactions require
+`tip: 0n`". The prover's README requires a zero tip on the transaction being *proved*, which is not
+the same object as the one submitted. Our own submissions use `tip: 0n` and are accepted, so
+nothing is broken — but the note is narrower than it reads. Left as an open thread rather than
+quietly rewritten on one observation.
