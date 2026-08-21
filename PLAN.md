@@ -55,7 +55,9 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - [x] Spend report export (CSV) — includes refusals, and neutralises spreadsheet formula injection in the LLM-written memo field (D-039)
 
 ## Phase D — Demo & docs (Days 9-10, Aug 29-30)
-- [ ] Public demo deploy (Vercel) → `demo_url`
+- [x] Public demo deploy (Vercel) → `demo_url` = https://kese-omega.vercel.app (production, live,
+      no credential stored on Vercel). Reproducible via `node scripts/build-vercel-tree.mjs` — verified
+      to rebuild the deployed artifact byte-for-byte (same content hash). See D-042.
 - [ ] 3-minute video: (1) tell Claude "pay $5" → goes through privately; (2) "send $300" → Telegram approval; (3) claim-link payment to an unregistered recipient; (4) report screen
 - [x] README polish: architecture diagram, STRK20-depth table, honest "privacy limitations" and
       "status" sections, setup guide that works from a clean clone (repo `.npmrc` + vendor fallback).

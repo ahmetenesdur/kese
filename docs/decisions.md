@@ -861,3 +861,47 @@ empty. Tests did not catch them because tests import functions; users run progra
 handshake, lists all six tools, keeps stdout free of anything but JSON-RPC, resolves the policy
 database back to the repo, and prints its status to stderr. `pnpm dashboard` serves live pool data.
 301 TS tests, 19 Cairo tests, typecheck clean.
+
+---
+
+## D-042 — The public demo ships without a credential on Vercel
+
+**Date:** 2026-08-21 · **Phase:** D · **Status:** live at https://kese-omega.vercel.app
+
+`demo_url` is the claim page. It cannot be the dashboard: that shows private balances over a
+loopback server with no authentication, and the absence of auth is only safe because there is no
+network path to it (see `apps/dashboard/src/server.ts`).
+
+**Three things had to be settled before publishing.**
+
+**1. The RPC URL is public.** Vite inlines `VITE_*` into the browser bundle, and this project's
+`RPC_URL_SEPOLIA` is an Alchemy endpoint with the key in the path. Building the page with the
+repo's own `.env` would have published that key in a JavaScript file. The deployment uses a
+keyless public endpoint instead — `https://api.cartridge.gg/x/starknet/sepolia`, picked by testing
+candidates against the actual call the page makes rather than by reputation: Blast is retired,
+Lava had no pairings, and Nethermind's free endpoint returned nothing. The live bundle was
+re-checked for `alchemy`, `infura`, `ACCOUNT_PRIVATE_KEY`, `VIEWING_KEY` and `TELEGRAM` after
+deploying, not only before.
+
+**2. Building on Vercel would have needed a token, so it does not build from this repo.** The
+workspace root depends on `@starkware-libs/starknet-privacy-sdk` from GitHub Packages, so a plain
+`pnpm install` fails there — and `@kese/core` depends on it too, so filtering the install does not
+help. Storing a `read:packages` token on Vercel would put a credential in a third-party service in
+order to install a package the claim page never uses: it reads the escrow with plain starknet.js,
+and claiming runs inside the visitor's own wallet. The deployment therefore carries its own
+`package.json` with the three packages the page actually needs. Every other file is copied verbatim
+to the same relative path, so `package.json` is the only file that can drift.
+
+`scripts/build-vercel-tree.mjs` assembles that tree, and its output was verified to rebuild the
+**exact artifact now serving** — same content hash, `index-B2G05xJk.js`. Redeploying is mechanical,
+not remembered.
+
+**3. A demo URL that says "you are in the wrong place" is not a demo.** The no-link screen was
+written for a recipient who copied half a link. It now keeps that instruction first and then
+explains the project, and it offers the four recipient screens as samples. Those were previously
+stripped from production builds; they ship now because `render()` enforces a banner and withholds
+the click listener, which is a stronger guarantee than absence — and because the screen carrying
+the "the amount is public" notice was otherwise unreviewable by anyone without a dev server.
+
+**Not claimed:** there is no funded claim link behind the demo, because creating one still needs
+the proving service. The samples say so on their face.

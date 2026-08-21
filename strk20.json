@@ -4,7 +4,9 @@
     "TODO_MAINNET_TX_HASH_2_touching_pool",
     "TODO_MAINNET_TX_HASH_3_touching_pool"
   ],
-  "contracts": ["TODO_escrow_claim_deployed_address"],
+  "contracts": [
+    "TODO_escrow_claim_deployed_address"
+  ],
   "demo_video": "TODO_3min_video_url",
-  "demo_url": "TODO_public_demo_url"
+  "demo_url": "https://kese-omega.vercel.app"
 }

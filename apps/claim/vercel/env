@@ -1,0 +1,5 @@
+# Vite inlines these into the browser bundle, so all three MUST be public values.
+# The project's own RPC URLs carry an API key and must never appear here.
+VITE_NETWORK=sepolia
+VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia
+VITE_ESCROW_ADDRESS=0x1ff4c7f216a9e1452e4533e03f926e2b10c7868a085b52c6034bcaa3cf3108

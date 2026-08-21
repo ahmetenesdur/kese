@@ -32,3 +32,6 @@ packages/*/src/**/*.js.map
 
 # Claim page build env (contains the RPC key)
 apps/claim/.env
+
+# Assembled by scripts/build-vercel-tree.mjs; regenerate, never edit in place.
+apps/claim/.vercel-tree/
