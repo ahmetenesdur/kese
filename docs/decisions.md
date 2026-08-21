@@ -679,3 +679,37 @@ Two gotchas worth keeping, because neither is in the docs:
 
 `scripts/vendor-sdk.sh` stays as a documented fallback rather than being deleted — the scope may not
 be available on whatever machine a judge uses.
+
+### D-037 — Self-hosted proving is a real fallback, but not on this laptop
+
+Investigated while #147 stayed silent. The findings change the Gate G1 options, so they are recorded
+even though the path was not taken.
+
+**The prover is publicly available.** The compatibility matrix in the SDK monorepo's README points
+at `ghcr.io/starkware-libs/starknet-privacy/transaction-prover:PRIVACY-0.14.3-RC.2`, and the
+manifest pulls **without authentication**. Both `linux/amd64` and `linux/arm64` are published.
+
+**And it does not need Pathfinder.** The matrix lists Pathfinder alongside it, which reads like a
+requirement; the prover's own README says otherwise — *"the prover can point to any Starknet RPC
+endpoint"*, the only constraint being v0.10 API support. Our Alchemy endpoints are already
+`.../rpc/v0_10/...`. That is a far lower bar than the matrix implies: no full node to sync.
+
+**Two things stop it here:**
+
+1. **The published arm64 image dies with SIGILL on Apple Silicon.** The binary is genuinely aarch64
+   (ELF `e_machine = 0xb7`), but `--version` exits 132 with no output at all — it uses instructions
+   this CPU does not implement, presumably built for a Neoverse-class target. Worth reporting
+   upstream: anyone developing on an Apple laptop hits this immediately.
+2. **The hardware ask is serious.** The prover's README specifies a *c4d-highcpu-48 or equivalent*
+   — 48 vCPU, 96 GB RAM — and notes that proving performance is highly machine-dependent. Owner's
+   call, and the right one: not worth burning a laptop on.
+
+**What this means for G1.** There are now **two** fallbacks, not one, and the new one is better:
+
+| Fallback | Keeps the agent autonomous? | Cost |
+|---|---|---|
+| **Self-hosted prover on a rented Linux box** | **yes** — this is the SDK route, unchanged | a few hours + a cloud instance |
+| Wallet-API route (agent proposes, owner's wallet signs) | no — a human taps every payment | a rebuild of the spending path |
+
+Self-hosting preserves the entire premise of the project; the Wallet-API route contradicts it. So if
+#147 stays silent past Day 3, **rent a machine before rewriting the architecture**.
