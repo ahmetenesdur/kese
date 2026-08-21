@@ -109,6 +109,7 @@ export function buildWallet(options: BuildWalletOptions): LiveWallet {
     redact,
     // In simulate mode nothing is submitted; receipts come back as `simulated`.
     simulateNode: mode === "simulate" ? provider : undefined,
+    escrowAddress: net.escrowAddress ?? undefined,
   });
 
   return { wallet, transfers, provider, account };

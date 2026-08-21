@@ -141,6 +141,21 @@ describe("withdraw", () => {
   });
 });
 
+describe("createClaimEscrow", () => {
+  it("fails closed, naming the setting, when no escrow is configured", async () => {
+    // Building the transaction anyway would withdraw funds to an unset address.
+    const receipt = await alice.createClaimEscrow({
+      token,
+      amount: 10n,
+      commitmentHash: "0x111",
+      refundHash: "0x222",
+      expiryBlocks: 100,
+    });
+    expect(receipt.status).toBe("failed");
+    expect(receipt.error).toMatch(/ESCROW_CONTRACT_ADDRESS/);
+  });
+});
+
 describe("balances", () => {
   it("returns zero for a token with no notes rather than omitting it", async () => {
     await alice.register();

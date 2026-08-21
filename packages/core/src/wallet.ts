@@ -27,6 +27,7 @@ import type {
   SimulateOptions,
 } from "@starkware-libs/starknet-privacy-sdk";
 import type { ProviderInterface } from "starknet";
+import { escrowDepositCalldata } from "./escrow.js";
 
 export interface Receipt {
   status: "confirmed" | "simulated" | "failed";
@@ -70,6 +71,8 @@ export interface KeseWalletDeps {
    * a dry run reads like a successful payment.
    */
   simulateNode?: ProviderInterface;
+  /** Deployed escrow-claim contract. Absent means claim links are unavailable, not silently skipped. */
+  escrowAddress?: string;
 }
 
 export interface KeseWallet {
@@ -79,7 +82,24 @@ export interface KeseWallet {
   payPrivate(token: string, amount: bigint, recipient: string): Promise<Receipt>;
   /** PUBLIC edge: the recipient address and amount are visible on-chain. */
   withdraw(token: string, amount: bigint, to: string): Promise<Receipt>;
+  /**
+   * Lock funds in the escrow against a claim commitment, in ONE pool transaction: withdraw to the
+   * escrow, then invoke it. Splitting the two would leave a window where the escrow holds funds it
+   * has no commitment for — and anyone's next deposit could claim them as its own funding.
+   */
+  createClaimEscrow(params: ClaimEscrowParams): Promise<Receipt>;
   balances(tokens: string[]): Promise<Record<string, bigint>>;
+}
+
+export interface ClaimEscrowParams {
+  token: string;
+  amount: bigint;
+  /** `poseidon(CLAIM_TAG, claimSecret)` — the escrow's storage key. */
+  commitmentHash: string;
+  /** `poseidon(REFUND_TAG, refundSecret)` — what the payer must prove to take the funds back. */
+  refundHash: string;
+  /** Blocks from now until the claim window closes and the refund window opens. */
+  expiryBlocks: number;
 }
 
 /**
@@ -183,6 +203,49 @@ export function createKeseWallet(deps: KeseWalletDeps): KeseWallet {
           // Change stays private with the sender, rather than following the public withdrawal.
           .surplusTo(address)
       );
+    },
+
+    async createClaimEscrow(params) {
+      if (!deps.escrowAddress) {
+        // Fail closed and say which setting is missing, rather than building a transaction that
+        // would withdraw funds to nowhere.
+        return {
+          status: "failed",
+          error:
+            "no escrow contract configured (ESCROW_CONTRACT_ADDRESS) — claim links are unavailable",
+        };
+      }
+      const escrow = deps.escrowAddress;
+
+      return run((provingBlock) => {
+        // Expiry is absolute, and derived from the SAME block the proof is built against, so the
+        // window the contract sees matches the one this transaction was reasoned about.
+        const expiryBlock = provingBlock + params.expiryBlocks;
+        return transfers
+          .build({
+            autoRegister: true,
+            autoSetup: true,
+            autoSelectNotes: "naive",
+            autoDiscover: REFRESH,
+            provingBlockId: provingBlock,
+          })
+          .with(params.token, (t) =>
+            t.withdraw({ recipient: escrow, amount: params.amount })
+          )
+          // `false` keeps the change as a private note instead of sending it out publicly with the
+          // withdrawal — the escrow should receive exactly the locked amount and nothing else.
+          .surplusTo(address, false)
+          .invoke(() => ({
+            contractAddress: escrow,
+            calldata: escrowDepositCalldata({
+              commitmentHash: params.commitmentHash,
+              refundHash: params.refundHash,
+              token: params.token,
+              amount: params.amount,
+              expiryBlock,
+            }),
+          }));
+      });
     },
 
     async balances(tokens) {

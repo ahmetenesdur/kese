@@ -24,3 +24,8 @@ kese-policy.sqlite*
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Compiled output must never land beside the sources — it shadows them at import time
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map

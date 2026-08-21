@@ -602,3 +602,32 @@ Getting the answer now is much cheaper than discovering it on Day 8.
 **Fallback if the answer is bad:** the escrow can pay a claimer by plain ERC-20 transfer to a public
 address instead of crediting an open note. The claimer loses privacy, the funds stay recoverable,
 and it is a contained contract change. PLAN.md's G2 ("cut claim links") stays the last resort.
+
+### D-034 — Compiled output was shadowing the sources, and tests kept passing
+
+`packages/core/src/*.js` and `*.d.ts` were committed in `2f59617` and sat beside the TypeScript
+they were built from for about an hour. Node resolves `import "./wallet.js"` to a **real**
+`wallet.js` in preference to mapping it to `wallet.ts`, so every one of those modules was being
+loaded from a stale build — including `index.js`, which `@kese/core` resolves through.
+
+The tests stayed green throughout, which is the whole problem: nothing failed, so nothing pointed at
+it. It surfaced only because a newly added method was "not a function" at runtime while sitting
+plainly in the source.
+
+Origin: `tsc` ran once with no `outDir` at all — it had been removed from the shared base (it
+resolves relative to the file that declares it, so it was emitting every package into the repo root)
+before the per-package ones were added. With no `outDir`, `tsc` emits beside the sources.
+
+Three fixes, because one was not enough:
+
+1. Deleted and untracked; `.gitignore` now covers `packages/*/src/**/*.js` and `.d.ts`.
+2. Every package tsconfig sets its own `outDir` **and** `rootDir` — verified that a full
+   `pnpm -r build` leaves `src/` clean.
+3. `scripts/check-no-shadow.mjs` fails the build if any compiled artifact appears beside a source,
+   and `pnpm test` runs it first. A tripwire, because this class of bug is invisible by
+   construction: the symptom is code that silently does not run.
+
+**What it cost:** the work committed between `2f59617` and now was correct — all 227 tests pass
+against the real sources, and the one failing test was failing *because* of the shadow, not because
+of a defect. But that was luck, not process. Anything that had regressed in `@kese/core` during
+that hour would have gone unnoticed.
