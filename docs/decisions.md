@@ -1076,3 +1076,65 @@ and the mainnet address in `.env`, claim links would have pointed at the mainnet
 that parses, renders, and can never be claimed, because the commitment is not there. Now resolved
 per network with the same suffix rule as the RPC, pool and proving URLs, with the unsuffixed name
 still honoured so an existing `.env` keeps working.
+
+---
+
+## D-046 — A self-hosted prover cannot shield. Gate G1's fallback ordering was wrong.
+
+**Date:** 2026-08-21 · **Phase:** M · **Status:** verified three ways, on mainnet
+
+D-037 concluded that self-hosting the prover was the *better* G1 fallback because it preserves the
+autonomous agent, and D-043 turned it into one command. Reading the official docs properly, and then
+checking the chain instead of trusting the reading, shows the plan has a hole in exactly one place —
+and it is the load-bearing place.
+
+**Deposits into a screening-enabled pool require an attestation we cannot produce.**
+
+`apply_actions` takes a trailing `Option<ScreeningAttestation>`. The SDK's own screening mock says
+it plainly: *"the screening-capable contract rejects a deposit whose attestation is missing or
+invalid… Non-deposit actions carry no attestation — the contract requires `Option::None` for
+those."* The attestation is a STARK-curve signature over the depositor address, produced by
+StarkWare's `elliptic-proxy` and relayed by the `proof-interceptor` sidecar, which needs
+`SCREENING_PARTNER_NAME` and `SCREENING_PARTNER_SECRET` "issued by the proxy operator".
+
+Three independent checks, not one:
+
+1. **Both pools enforce it.** `get_screener_public_key` is set on mainnet
+   (`0x501cc452e5a4…`) and Sepolia (`0x62f1e7ca586c…`).
+2. **Real mainnet deposits carry a signature.** Tracing a live `Deposit` down to the pool's
+   `apply_actions` call, the calldata ends `Option::Some` — `issued_at=1787175057` plus `(r, s)`.
+3. **Real mainnet non-deposits do not.** Four sampled register/transfer/withdraw transactions all
+   end `0x1` — `Option::None`, exactly as the contract requires for those.
+
+**What this changes.**
+
+| Route | register | shield | transfer | withdraw |
+|---|---|---|---|---|
+| Hosted proving service (unpublished) | ✅ | ✅ | ✅ | ✅ |
+| **Self-hosted prover** | ✅ | ❌ **no attestation** | ✅ | ✅ |
+| Privacy-enabled wallet (Ready, the app) | ✅ | ✅ | ✅ | ✅ |
+
+A self-hosted prover gets us `register` — one eligible transaction — and then stops, because
+transfer and withdraw need notes and the only way to create our own notes is a deposit.
+
+**Why our dry run did not catch this.** Simulate mode proves through `CallMockProofProvider`, which
+attaches no attestation, and its check is a *view* call. The screening requirement lives in
+`apply_actions`, which simulate never invokes. The green `shield (simulate)` was accurate about what
+it tested and silent about this — which is the same shape as every other trap in this project.
+
+**The route that does work is the one the product already describes.** CLAUDE.md's first line is
+"The owner shields funds once into the STRK20 pool. Their AI agent then pays through Kese's MCP
+tools." A deposit made through a privacy-enabled wallet is screened and attested by StarkWare's own
+prover; every subsequent action the agent takes is a non-deposit and needs no attestation. So:
+
+1. Owner shields once, from a privacy-enabled wallet.
+2. Agent registers, transfers and withdraws — with a self-hosted prover if the hosted URL never
+   arrives.
+
+That yields four eligible transactions where three are required, and it costs nothing
+architecturally, because it is the architecture.
+
+**Revised G1 ordering.** Self-hosting is no longer sufficient on its own; it is the *agent* half of
+a two-part plan whose other half needs a privacy-enabled wallet. The hosted URL remains strictly
+better than both. Recorded against D-037, which said the opposite for good reasons that turned out
+to be incomplete.
