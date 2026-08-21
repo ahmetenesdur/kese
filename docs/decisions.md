@@ -931,3 +931,47 @@ git-linked project is `kese-claim` and the old one is paused. `kese-claim.vercel
 better name for a link a real recipient receives, which was the runner-up when the name was chosen.
 Moving now cost nothing: no external document pointed at the old URL yet. It would not have stayed
 cheap.
+
+---
+
+## D-043 — Standing up our own prover is now one command
+
+**Date:** 2026-08-21 · **Phase:** D (G1 preparation) · **Status:** ready, not yet run
+
+D-037 established that self-hosting is the *right* first fallback for Gate G1 — it keeps the agent
+autonomous, which the Wallet-API route does not. What it did not leave behind was a way to actually
+do it: "rent a box and figure out the prover" is not a plan you want to start executing on Day 8.
+`scripts/prover-up.sh` closes that gap.
+
+The configuration is taken from the prover's own README (`starkware-libs/sequencer`, branch
+`avi/privacy/configmap-docs`, `crates/starknet_transaction_prover`) rather than inferred, and the
+image's entrypoint and exposed port were read straight from its OCI config on ghcr. Three things
+that matter came out of it:
+
+**`CHAIN_ID` defaults to `SN_MAIN`.** Left unset on a Sepolia box, the prover loads mainnet fee-token
+addresses and versioned constants, and the failure surfaces as a bad transaction rather than a
+misconfiguration. The script always passes it explicitly and never defaults it.
+
+**The RPC requirement is checkable before anything starts.** The only hard constraint is v0.10 API
+support — no Pathfinder, despite the compatibility matrix listing one. The script calls
+`starknet_specVersion` on the endpoint first and refuses to start on anything older, because
+discovering that at proof time costs an hour. (Alchemy URLs need the `/rpc/v0_10/` path segment.)
+
+**Proving is client-side and charges no fee.** The prover *rejects* a transaction with a non-zero
+`tip` or non-zero `max_price_per_unit` unless `SKIP_FEE_FIELD_VALIDATION=true`. That is an
+independent confirmation of the `tip: 0n` rule in `chain.ts` — which we had as an SDK requirement
+and is in fact enforced by the prover too.
+
+**Two guards, because this is a fallback someone will run in a hurry.** It refuses to run on arm64,
+naming the SIGILL from D-037 rather than letting it be rediscovered; and it binds the container to
+`127.0.0.1`, since the prover has no authentication and an open proving endpoint is free compute for
+whoever finds it. Reach it over an SSH tunnel.
+
+**What is still unmeasured:** whether anything smaller than the recommended c4d-highcpu-48 (48 vCPU,
+96 GB, amd64) produces a proof in acceptable time. The README says proving is "highly sensitive to
+the machine type" and gives no floor. The script warns below 16 vCPU but cannot answer the question
+without a real proof — that measurement is the first thing to take once a box exists.
+
+**Not run here.** Verified as far as this machine allows: argument handling, the network mapping,
+and the arm64 guard firing correctly on this laptop. Everything past the architecture check needs
+the rented instance.

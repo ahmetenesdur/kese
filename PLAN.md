@@ -70,6 +70,7 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - [ ] Final checks; be done hours before 23:59 UTC
 
 ## Decision gates summary
-- **G1 (Days 1-3):** SDK+proving not working → **first** try a self-hosted prover (D-037: the image is public, needs only a v0.10 RPC, but wants a real Linux box — arm64 build SIGILLs on Apple Silicon). Only if that fails → Wallet-API fallback (the owner's Ready wallet produces proofs; agent "proposes", wallet "approves" — less autonomous but shippable) or withdraw. Ordering matters: self-hosting keeps the agent autonomous, which is the whole premise; the Wallet-API route gives it up.
+- **G1 (Days 1-3):** SDK+proving not working → **first** try a self-hosted prover. `./scripts/prover-up.sh`
+  now does it in one command on a rented amd64 box, with the RPC v0.10 check up front (D-043). (D-037: the image is public, needs only a v0.10 RPC, but wants a real Linux box — arm64 build SIGILLs on Apple Silicon). Only if that fails → Wallet-API fallback (the owner's Ready wallet produces proofs; agent "proposes", wallet "approves" — less autonomous but shippable) or withdraw. Ordering matters: self-hosting keeps the agent autonomous, which is the whole premise; the Wallet-API route gives it up.
 - **G2 (Day 7):** Cairo delayed → cut claim links.
 - **G3 (Day 8):** unexpected mainnet blocker → Sepolia demo + a minimal 3-tx mainnet flow (guarantee eligibility).
