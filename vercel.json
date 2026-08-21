@@ -3,5 +3,6 @@
   "framework": null,
   "installCommand": "cp apps/claim/vercel/package.json package.json && cp apps/claim/vercel/env apps/claim/.env && npm install --no-audit --no-fund",
   "buildCommand": "npm run build",
-  "outputDirectory": "apps/claim/dist"
+  "outputDirectory": "apps/claim/dist",
+  "cleanUrls": true
 }
