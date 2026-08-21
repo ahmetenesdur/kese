@@ -17,8 +17,8 @@
     "test": "node scripts/check-no-shadow.mjs && vitest run",
     "keys:gen": "tsx scripts/gen-smoke-keys.ts",
     "telegram:dry-run": "tsx scripts/telegram-dry-run.ts",
-    "escrow:build": "bash -c \"export PATH=$HOME/.asdf/installs/scarb/2.16.0/bin:$HOME/.asdf/installs/starknet-foundry/0.57.0/bin:$PATH && cd contracts/escrow-claim && scarb build\"",
-    "escrow:test": "bash -c \"export PATH=$HOME/.asdf/installs/scarb/2.16.0/bin:$HOME/.asdf/installs/starknet-foundry/0.57.0/bin:$PATH && cd contracts/escrow-claim && snforge test\"",
+    "escrow:build": "bash scripts/cairo.sh build",
+    "escrow:test": "bash scripts/cairo.sh test",
     "escrow:deploy": "tsx scripts/deploy-escrow.ts",
     "check:shadow": "node scripts/check-no-shadow.mjs"
   },
