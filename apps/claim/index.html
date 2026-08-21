@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Kese — private money for AI agents</title>
-    <meta name="description" content="A spending account for AI agents on Starknet's STRK20 privacy pool. Private payments, inside limits the agent cannot argue with." />
+    <meta name="description" content="A spending account for AI agents on Starknet's STRK20 privacy pool. Private payments governed by limits the agent cannot override." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -156,8 +156,8 @@
         <p class="eyebrow" style="margin-top:2.5rem">Starknet · STRK20 privacy pool</p>
         <h1>Let an agent spend your money. <em>Not all of it.</em></h1>
         <p class="lede">
-          Kese pays privately from a shielded balance — the pool hides sender, recipient and
-          amount — and every payment passes a gate the agent cannot talk its way past.
+          Kese pays from a shielded balance that hides the sender, recipient, and amount. Every
+          payment first passes a deterministic gate the agent cannot override.
         </p>
 
         <!--
@@ -181,13 +181,13 @@
         </div>
 
         <p class="policy-note">
-          owner's policy · 10 per payment · 50 per rolling 24h · asks above 2 · 12 spent today
+          owner's policy · 10 per payment · 50 per rolling 24h · asks above 2 · 12 already spent
         </p>
 
         <p class="honest">
-          <strong>What it does not hide:</strong> money entering and leaving the pool is public, and
-          deposits are compliance-screened. Privacy starts inside. A claim link hides the recipient
-          but not the amount.
+          <strong>What it does not hide:</strong> deposits and withdrawals are public, and deposits
+          are compliance-screened. Privacy begins inside the pool. A claim link hides the recipient,
+          not the amount.
         </p>
       </div>
     </main>

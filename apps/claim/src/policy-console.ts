@@ -60,28 +60,28 @@ export function decide(amount: number, policy: Policy): Decision {
   const rules: Rule[] = [
     {
       label: "Amount is a positive number",
-      detail: amount > 0 ? `${fmt(amount)} STRK` : "not a valid amount",
+      detail: amount > 0 ? `${fmt(amount)} STRK` : "must be greater than 0",
       state: "pass",
     },
     {
       label: "Recipient is on the allowlist",
-      detail: policy.allowlisted ? "0x04b2…9c1a is allowed" : "0x9f31…20de is not on the list",
+      detail: policy.allowlisted ? "0x04b2…9c1a allowlisted" : "0x9f31…20de not allowlisted",
       state: "pass",
     },
     {
       label: "Per-transaction cap",
-      detail: `${fmt(amount)} against a cap of ${fmt(policy.perTxCap)}`,
+      detail: `${fmt(amount)} STRK · cap ${fmt(policy.perTxCap)}`,
       state: "pass",
     },
     {
       label: "Rolling 24-hour budget",
-      detail: `${fmt(wouldReach)} of ${fmt(policy.dailyCap)}`,
+      detail: `${fmt(wouldReach)} of ${fmt(policy.dailyCap)} STRK if paid`,
       state: "pass",
       meter: { spent: policy.spentToday, adding: amount, cap: policy.dailyCap },
     },
     {
       label: "Approval threshold",
-      detail: `${fmt(amount)} against a threshold of ${fmt(policy.approvalThreshold)}`,
+      detail: `${fmt(amount)} STRK · threshold ${fmt(policy.approvalThreshold)}`,
       state: "pass",
     },
   ];
@@ -104,7 +104,7 @@ export function decide(amount: number, policy: Policy): Decision {
     return { verdict, rules, decidedAt: index, headline };
   };
 
-  if (!(amount > 0)) return stopAt(0, "fail", "deny", "Not a valid amount", "invalid_request");
+  if (!(amount > 0)) return stopAt(0, "fail", "deny", "Enter an amount greater than 0", "invalid_request");
 
   if (!policy.allowlisted) {
     return stopAt(1, "fail", "deny", "Recipient is not on the allowlist", "recipient_not_allowlisted");
@@ -112,7 +112,7 @@ export function decide(amount: number, policy: Policy): Decision {
 
   if (amount > policy.perTxCap) {
     // Before the threshold on purpose: a cap is not something an owner can approve past.
-    return stopAt(2, "fail", "deny", "Over the cap — and caps are absolute", "per_tx_cap_exceeded");
+    return stopAt(2, "fail", "deny", "Over the per-transaction cap. Caps are absolute", "per_tx_cap_exceeded");
   }
 
   if (wouldReach > policy.dailyCap) {
@@ -120,13 +120,13 @@ export function decide(amount: number, policy: Policy): Decision {
   }
 
   if (amount > policy.approvalThreshold) {
-    return stopAt(4, "ask", "ask", "Over the threshold — the owner gets a message");
+    return stopAt(4, "ask", "ask", "Above the approval threshold — Kese asks the owner on Telegram");
   }
 
   return {
     verdict: "allow",
     rules,
     decidedAt: 4,
-    headline: "Inside every limit — the agent pays, privately",
+    headline: "All policy checks passed — the agent pays privately",
   };
 }

@@ -30,8 +30,9 @@ const content = document.getElementById("content")!;
 const PRIVACY_NOTICE = `
   <div class="notice">
     <strong>What is private here, and what is not.</strong>
-    Who paid you is hidden. <strong>The amount is not</strong> — claiming credits an open note,
-    which carries its value in the clear on-chain. Your own address stays unlinked to the payer.
+    Who paid you is hidden, and your wallet stays unlinked to the payer.
+    <strong>The amount is public</strong>: a claim link reveals it, and it is recorded on-chain.
+    Deposits and withdrawals are public; deposits are compliance-screened.
   </div>`;
 
 /**
@@ -67,9 +68,9 @@ function render(state: ClaimState, sample = false): void {
         <p class="sub">This page needs a claim link. Open the full link you were sent — it ends
           with <code>#</code> followed by a long code.</p>
         <div class="about">
-          <p class="samples">See the screens a recipient gets:
+          <p class="samples">Preview recipient screens:
             <a href="?demo=claimable">waiting</a> ·
-            <a href="?demo=settled">collected</a> ·
+            <a href="?demo=settled">closed</a> ·
             <a href="?demo=expired">expired</a> ·
             <a href="?demo=unknown">not found</a></p>
           <p class="repo"><a href="/">What is Kese? →</a></p>
@@ -84,21 +85,22 @@ function render(state: ClaimState, sample = false): void {
     case "unknown":
       // Deliberately vague about WHY. Distinguishing "never existed" from "already cleaned up"
       // would tell someone probing random secrets which guesses were closer.
-      content.innerHTML = `${banner}<p class="sub">No payment found for this link. It may have been
-        mistyped, or already claimed some time ago.</p>`;
+      content.innerHTML = `${banner}<p class="sub">No payment was found for this link. Check that you
+        opened the full link; if you did, ask the sender to verify it.</p>`;
       return;
 
     case "settled":
       content.innerHTML = `${banner}
         <div class="amount">${escape(describeAmount(state.amount, state.token, config.network))}</div>
-        <p class="sub">This payment has already been collected.</p>`;
+        <p class="sub">This payment is no longer available. It was claimed or returned to the sender.</p>
+        ${PRIVACY_NOTICE}`;
       return;
 
     case "expired":
       content.innerHTML = `${banner}
         <div class="amount">${escape(describeAmount(state.amount, state.token, config.network))}</div>
-        <p class="sub">This link has expired and the funds have gone back to the sender. Ask them
-          for a new link.</p>`;
+        <p class="sub">This link has expired. The sender can recover the funds; ask them for a new link.</p>
+        ${PRIVACY_NOTICE}`;
       return;
 
     case "claimable":
@@ -166,7 +168,7 @@ async function claim(state: Extract<ClaimState, { kind: "claimable" }>): Promise
       return (major ?? 0) > 0 || (minor ?? 0) >= 10;
     });
     if (!privacyCapable) {
-      setStatus("This wallet does not support private payments yet. Ready supports them today.");
+      setStatus("This wallet does not support STRK20 private payments. Use Ready to claim this payment.");
       button.disabled = false;
       return;
     }
@@ -194,12 +196,11 @@ async function claim(state: Extract<ClaimState, { kind: "claimable" }>): Promise
       },
     ] as never);
 
-    setStatus(`Sent — transaction ${transaction_hash.slice(0, 10)}…. It may take a minute.`);
-  } catch (error) {
+    setStatus(`Claim submitted — transaction ${transaction_hash.slice(0, 10)}… Confirmation may take a minute.`);
+  } catch {
     // Never echo a raw wallet error: they can carry request payloads, and this page holds a bearer
     // secret in its address bar.
-    const message = error instanceof Error ? error.message.split("\n")[0] : "Something went wrong";
-    setStatus(message.slice(0, 160));
+    setStatus("Could not confirm whether the claim was submitted. Check your wallet activity before trying again.");
     button.disabled = false;
   }
 }
@@ -274,8 +275,7 @@ async function main(): Promise<void> {
   try {
     render(await lookupClaim(secret, config));
   } catch {
-    content.innerHTML = `<p class="sub">Could not reach the network just now. Refresh to try
-      again — your link is still valid.</p>`;
+    content.innerHTML = `<p class="sub">Could not check this payment. Refresh to try again.</p>`;
   }
 }
 

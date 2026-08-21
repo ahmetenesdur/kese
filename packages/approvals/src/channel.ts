@@ -215,15 +215,20 @@ export function renderMessage(ticket: ApprovalTicket): string {
     "",
     ticket.summary,
     "",
-    `Why: ${ticket.reason}`,
+    `Rule: ${ticket.reason}`,
   ];
 
   if (ticket.dailyBudget && ticket.remainingDailyBudget) {
     const { remainingAfter, cap } = ticket.dailyBudget;
     const bar = budgetBar(cap - remainingAfter, cap);
-    lines.push(bar ? `Today: ${bar} ${ticket.remainingDailyBudget} left` : `Today: ${ticket.remainingDailyBudget} left`);
+    lines.push(
+      "Rolling 24-hour budget:",
+      bar
+        ? `${bar} ${ticket.remainingDailyBudget} left after payment`
+        : `${ticket.remainingDailyBudget} left after payment`
+    );
   } else if (ticket.remainingDailyBudget) {
-    lines.push(`Daily budget left after this: ${ticket.remainingDailyBudget}`);
+    lines.push("Rolling 24-hour budget:", `${ticket.remainingDailyBudget} left after payment`);
   }
 
   lines.push("", `Request: ${ticket.id}`, "No response is treated as a denial.");
