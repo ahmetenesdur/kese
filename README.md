@@ -43,10 +43,10 @@ Owner-side: shield once from Ready wallet, set policies, watch the dashboard, ex
 ## Quickstart
 
 ```sh
-# Node >= 24, pnpm. The SDK ships via GitHub Packages and needs the read:packages scope:
-gh auth refresh -h github.com -s read:packages   # once; see docs/strk20-notes.md §1
+# Node >= 24, pnpm. The SDK ships via GitHub Packages, so npm needs a token with read:packages:
+gh auth refresh -h github.com -s read:packages          # once
+npm config set '//npm.pkg.github.com/:_authToken' "$(gh auth token)"
 pnpm install
-# If install 403s (scope not granted): ./scripts/vendor-sdk.sh && pnpm install   → decisions D-005
 
 bash scripts/setup-skills.sh   # STRK20 + Anthropic agent skills (see CLAUDE.md "Skills")
 cp .env.example .env           # fill: RPC, account, viewing key, proving URL

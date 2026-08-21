@@ -12,13 +12,18 @@ Key objects: Notes · Nullifiers (double-spend prevention) · Viewing keys (regi
 
 Package: `@starkware-libs/starknet-privacy-sdk` · Node **≥ 24** (WebCrypto). Distributed via **GitHub Packages**, so:
 
-> **Verified Aug 21, 2026:** the `read:packages` scope is the whole ball game — without it the
-> registry returns `403 permission_denied` even though the package is published. `gh auth refresh`
-> is an interactive device-flow, so it is an owner action. Fallback used on Day 1: build the public
-> monorepo and install the packed tarball (docs/decisions.md D-005). Current pin: **0.14.3-rc.5**
-> at the **release commit `66e3caa`** — *not* main HEAD. Main carries post-release changes while
-> `package.json` still reads rc.5, including a changed `PrivacyPoolABI`; building a client ABI ahead
-> of the deployed pool ships calls that compile and then revert (D-015).
+> **Verified Aug 21, 2026 — resolved.** The `read:packages` scope is the whole ball game: without
+> it the registry returns `403 permission_denied` even though the package is published, and refreshing
+> it needs an interactive device-flow (owner action). **Two gotchas beyond the scope itself:** the
+> refresh prompt breaks in terminals that inject escape sequences — run it from a normal desktop
+> terminal — and npm keeps using the OLD token afterwards, so
+> `npm config set '//npm.pkg.github.com/:_authToken' "$(gh auth token)"` has to follow.
+>
+> Current pin: **0.14.3-rc.5** from the registry. If the scope is ever unavailable,
+> `./scripts/vendor-sdk.sh` builds the same artefact from the **release commit `66e3caa`** — *not*
+> main HEAD, which carries post-release changes (including a changed `PrivacyPoolABI`) while
+> `package.json` still reads rc.5 (D-015). That build was diffed against the published tarball and
+> is byte-identical.
 
 ```sh
 gh auth refresh -h github.com -s read:packages

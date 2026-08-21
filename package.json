@@ -1,7 +1,7 @@
 {
   "name": "kese",
   "private": true,
-  "description": "Private money for AI agents on STRK20 — policy-guarded MCP wallet layer",
+  "description": "Private money for AI agents on STRK20 \u2014 policy-guarded MCP wallet layer",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -23,7 +23,7 @@
     "check:shadow": "node scripts/check-no-shadow.mjs"
   },
   "dependencies": {
-    "@starkware-libs/starknet-privacy-sdk": "file:./vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz",
+    "@starkware-libs/starknet-privacy-sdk": "0.14.3-rc.5",
     "starknet": "10.5.0"
   },
   "devDependencies": {

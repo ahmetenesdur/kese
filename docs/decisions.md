@@ -14,7 +14,7 @@ commit `36eac4ea88cd8c59dde1493176e16501c6e90328`, package version **0.14.3-rc.5
 Where the SDK's own types contradict `docs/strk20-notes.md` or the SDK README, the **types win**
 — both prose sources carry stale examples (details in D-008).
 
-### D-005 — SDK obtained by building the public monorepo, not from GitHub Packages
+### D-005 — SDK obtained by building the public monorepo, not from GitHub Packages ✅ RESOLVED 2026-08-21
 
 **Blocked:** `pnpm add @starkware-libs/starknet-privacy-sdk` fails with
 
@@ -656,3 +656,26 @@ that assumes it can fetch the link again hands the recipient nothing.
 **Withdraw and invoke ride in one pool transaction.** Splitting them would leave a window where the
 escrow holds funds it has no commitment for — and the next deposit could claim them as its own
 funding, which is exactly what the contract's funding check is there to prevent.
+
+### D-036 — `read:packages` granted; the vendored SDK is gone, and it was byte-identical
+
+The scope is in place and `pnpm install` now pulls `0.14.3-rc.5` from GitHub Packages. `vendor/` is
+deleted and `package.json` points at the registry version. D-005 is closed.
+
+**The workaround verified itself on the way out.** Before switching, the dist built from source at
+commit `66e3caa` was diffed against the published tarball: 55 files, **byte-identical**. So every
+test run over the preceding hours was exercising the real published SDK, not an approximation —
+which is the reassurance a from-source workaround normally cannot give.
+
+Two gotchas worth keeping, because neither is in the docs:
+
+1. **`gh auth refresh` needs a terminal that can prompt.** It failed with
+   `could not prompt: unexpected escape sequence from terminal: ['\x1b' ']']` in a mobile/remote
+   terminal that was answering an OSC-11 colour query onto stdin. There is no flag to skip the
+   prompt (checked `gh auth refresh --help`, v2.97.0). Run it from a desktop terminal.
+2. **Refreshing the gh token does not update npm.** `~/.npmrc` keeps the old value, so the 403
+   continues until `npm config set '//npm.pkg.github.com/:_authToken' "$(gh auth token)"` is run
+   afterwards.
+
+`scripts/vendor-sdk.sh` stays as a documented fallback rather than being deleted — the scope may not
+be available on whatever machine a judge uses.

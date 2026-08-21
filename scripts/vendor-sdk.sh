@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 #
-# Rebuild the vendored Privacy SDK tarball (docs/decisions.md D-005).
+# Rebuild the Privacy SDK tarball from source — FALLBACK ONLY (docs/decisions.md D-005).
+#
+# The normal install is `pnpm install` against GitHub Packages. Keep this script for the case where
+# the read:packages scope is unavailable: it was needed for the first day of this project, and it
+# produced a build byte-identical to the published 0.14.3-rc.5 (verified by diffing both dists).
 #
 # WHY THIS EXISTS: the SDK is published to GitHub Packages, which requires the `read:packages`
 # scope. If `pnpm install` fails with `403 permission_denied`, the correct fix is:

@@ -9,7 +9,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@starkware-libs/starknet-privacy-sdk": "file:../../vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz",
+    "@starkware-libs/starknet-privacy-sdk": "0.14.3-rc.5",
     "starknet": "10.5.0"
   },
   "types": "dist/index.d.ts"
