@@ -807,3 +807,57 @@ true; only one is the rule. Corrected in the notes.
 6 STRK is 18 in fees, plus a few STRK actually shielded, plus gas and the account deploy, plus the
 unverified ~24 STRK proving reserve from #121 if that turns out to be real. **Budget ~45–50 STRK**
 to be comfortable; the guide's own line is "three transactions of a few STRK each".
+
+---
+
+## D-041 — Writing the README exposed three things that did not work
+
+**Date:** 2026-08-21 · **Phase:** D · **Status:** fixed
+
+Documenting the project for judges meant asserting, in writing, that specific commands work. Three
+of those assertions turned out to be false. None had failed a test, because none was covered by
+one — they were all in the seam between the code and the person running it.
+
+**1. `pnpm escrow:build` / `escrow:test` failed on any PATH containing a space.** Both inlined
+`bash -c "export PATH=$HOME/...:$PATH && ..."`. npm expands that through `sh` *before* bash parses
+it, so the literal contents of PATH were spliced into the command text; on macOS, "Application
+Support" ended the assignment at the space and the remainder became stray commands. 22 entries on
+this machine had spaces. The obvious fix — look the tools up on PATH — has its own trap:
+`command -v scarb` **succeeds** on an asdf install while `scarb` still fails, because the shim on
+PATH re-execs through an `asdf` binary a non-interactive shell cannot see. Existence is not the
+test. `scripts/cairo.sh` now probes each candidate by running it, and quotes properly.
+
+**2. `packages/mcp` had no runnable entrypoint.** `index.ts` was a barrel of exports;
+`node dist/index.js` loaded a module and exited. The README's MCP config block — the single thing a
+judge would actually try — did nothing. `createKeseMcpServer()` was fully tested, but nothing
+constructed its dependencies, wired a transport, or loaded configuration. A tested factory with no
+caller is not a product. `src/main.ts` is now that caller.
+
+**3. Everything read `.env` relative to the cwd.** Fine while every entrypoint was launched from
+the repo root by hand; wrong for both launchers that matter. `pnpm --filter @kese/dashboard dev`
+runs from `apps/dashboard/`, and an MCP client spawns its server from wherever it likes. The
+dashboard's fail-closed check then reported nine missing variables — correct behaviour, wrong
+reason, and it reads as an operator mistake rather than a lookup failure. `loadDotEnv()` in
+`@kese/core` climbs from the module's own directory as well as the cwd, nearest file wins.
+
+**The consequential half of #3 was not the `.env`.** `POLICY_DB_PATH` defaults to
+`./kese-policy.sqlite`, also cwd-relative. That file holds the **idempotency records**. Launched
+from a different directory, the server silently opens a *different, empty* database — so a retried
+payment whose key lives in the other file is not recognised as a replay and executes a second time.
+Hard rule 3 says the same key must never re-execute; that guarantee is only as durable as the file
+it is stored in. Relative paths are now resolved against the project root, not the caller.
+
+**Also fixed while in there:** `main.ts` releases reservations left holding budget by approvals that
+did not survive a restart. `pendingReservations()` existed and was tested, but had no production
+caller, so a crash during a pending approval held daily budget until the rolling window slid past
+it — up to a day.
+
+**The pattern, again.** Every one of these is a confident-but-wrong surface: a script that reports
+success from a stale build, a server that "starts" without serving, a database that is present but
+empty. Tests did not catch them because tests import functions; users run programs. Writing down
+"here is the command you type" and then typing it is what caught all three.
+
+**Verified:** the built server, spawned from `$HOME`, completes an MCP `initialize` + `tools/list`
+handshake, lists all six tools, keeps stdout free of anything but JSON-RPC, resolves the policy
+database back to the repo, and prints its status to stderr. `pnpm dashboard` serves live pool data.
+301 TS tests, 19 Cairo tests, typecheck clean.

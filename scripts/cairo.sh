@@ -59,7 +59,7 @@ Install it with starkup (https://github.com/software-mansion/starkup):
   curl --proto '=https' --tlsv1.2 -sSf https://sh.starkup.dev | sh
 
 The escrow contract needs scarb 2.16.0 and starknet-foundry 0.57.0. Everything else in
-this repo — the MCP server, the policy engine, all 293 TypeScript tests — builds without
+this repo — the MCP server, the policy engine, all 301 TypeScript tests — builds without
 them; only \`pnpm escrow:*\` does.
 MSG
   exit 127

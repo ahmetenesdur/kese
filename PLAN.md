@@ -57,7 +57,11 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 ## Phase D — Demo & docs (Days 9-10, Aug 29-30)
 - [ ] Public demo deploy (Vercel) → `demo_url`
 - [ ] 3-minute video: (1) tell Claude "pay $5" → goes through privately; (2) "send $300" → Telegram approval; (3) claim-link payment to an unregistered recipient; (4) report screen
-- [ ] README polish: architecture diagram, judging-criteria map, honest "privacy limitations" section, setup guide
+- [x] README polish: architecture diagram, STRK20-depth table, honest "privacy limitations" and
+      "status" sections, setup guide that works from a clean clone (repo `.npmrc` + vendor fallback).
+      Writing it broke three things that had never been run: `escrow:*` on any PATH with a space,
+      the MCP server (no entrypoint existed — `packages/mcp/src/main.ts` is new), and cwd-relative
+      `.env`/`POLICY_DB_PATH` lookup (the latter could re-execute a retried payment). See D-041.
 - [ ] Final `strk20.json` + last push
 
 ## Day 11 (Aug 31) — Buffer only
