@@ -56,10 +56,24 @@ export function mainnetArmingError(
   env: Record<string, string | undefined>,
   now: Date
 ): string | null {
-  if (network !== "mainnet") return null;
-
   const armed = env.KESE_MAINNET_ARMED?.trim();
   const today = now.toISOString().slice(0, 10);
+
+  // Armed for mainnet while pointed somewhere else. This is not a harmless combination to wave
+  // through: someone who sets this variable believes they are about to touch mainnet, and if they
+  // are not, every figure they are about to read and approve belongs to a different chain. It
+  // happened — a transfer typed with the arming date but without KESE_NETWORK went out on Sepolia
+  // while both parties read the output as mainnet. Refusing costs one clear error; allowing it
+  // costs the trust in every number the run prints.
+  if (network !== "mainnet") {
+    if (armed) {
+      return (
+        `KESE_MAINNET_ARMED is set, but KESE_NETWORK is "${network}". Arming mainnet while pointed ` +
+        `at another chain is almost always a mistake — set KESE_NETWORK=mainnet, or drop the arming.`
+      );
+    }
+    return null;
+  }
 
   if (!armed) {
     return (

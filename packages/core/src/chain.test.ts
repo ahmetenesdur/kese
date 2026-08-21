@@ -57,6 +57,15 @@ describe("mainnetArmingError", () => {
     expect(mainnetArmingError("sepolia", {}, day("2026-08-21"))).toBeNull();
   });
 
+  it("refuses sepolia when mainnet arming is set — the combination is a typo, not a config", () => {
+    // What actually happened: a transfer typed with the arming date but without KESE_NETWORK ran
+    // on Sepolia while the output was read as mainnet. Nothing was lost because the tokens were
+    // test tokens; the lesson is that the numbers on screen belonged to the wrong chain.
+    const error = mainnetArmingError("sepolia", { KESE_MAINNET_ARMED: "2026-08-21" }, day("2026-08-21"));
+    expect(error).toContain("KESE_NETWORK");
+    expect(error).toContain("sepolia");
+  });
+
   it("blocks mainnet when nothing is set, and says what to set", () => {
     const error = mainnetArmingError("mainnet", {}, day("2026-08-21"));
     expect(error).toContain("KESE_MAINNET_ARMED is not set");
