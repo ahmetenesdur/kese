@@ -182,11 +182,17 @@ const provingBlockId = head - PROOF_DEPTH;
 const built = await transfers
   .build({ provingBlockId })
   .register()
-  .simulate({ node: provider as never, provingBlockId });
+  // The proving block is already fixed by `.build({ provingBlockId })` above; the SDK's
+  // SimulateOptions does not take it a second time.
+  .simulate({ node: provider });
 const { call, proof } = built.callAndProof;
 
-console.log(`\n4. submitting a real register (apply_actions, ${call.calldata.length} felts)`);
-console.log(`   last felt ${call.calldata.at(-1)} = Option::None, i.e. no screening attestation,`);
+// `Call.calldata` is optional and loosely typed upstream; the SDK always produces a felt array
+// here, and naming that once keeps the rest of the file honest about what it is handling.
+const calldata = (call.calldata ?? []) as string[];
+
+console.log(`\n4. the register call this produces (apply_actions, ${calldata.length} felts)`);
+console.log(`   last felt ${calldata.at(-1)} = Option::None, i.e. no screening attestation,`);
 console.log(`   which is exactly what the contract requires for a non-deposit action.`);
 
 /**
@@ -201,7 +207,7 @@ try {
   await provider.callContract({
     contractAddress: call.contractAddress,
     entrypoint: call.entrypoint,
-    calldata: call.calldata as string[],
+    calldata,
   });
   console.log(`   ACCEPTED — no proof was required after all. The guide is right; investigate.`);
 } catch (error) {
