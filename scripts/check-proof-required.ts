@@ -18,10 +18,16 @@
  *   4. Submit a real `apply_actions` register call TWICE: once with no proof at all (this is the
  *      claim as written), and once with a mock proof (to separate "no proof" from "bad proof").
  *
- * Runs on either network. Checks 1-5 are read-only RPC calls and cost nothing, which matters:
- * the two pools are different classes (mainnet `0x67dddd89…`, Sepolia `0x56ab118a…`), so assuming
- * they behave alike is exactly the move this script exists to avoid. Only check 6 submits a
- * transaction, so on mainnet it is skipped unless KESE_MAINNET_ARMED says otherwise.
+ * Runs on either network, and costs nothing on either. That matters: the two pools are different
+ * classes (mainnet `0x67dddd89…`, Sepolia `0x56ab118a…`), so assuming they behave alike is exactly
+ * the move this script exists to avoid. Checks 1-5 are read-only RPC calls. Check 6 *would* submit,
+ * but the fee estimate is refused before anything reaches the chain — measured on mainnet, the
+ * whole run moved 0.000000 STRK.
+ *
+ * Check 6 still asks for KESE_MAINNET_ARMED on mainnet, and the reason is the interesting one: it
+ * is free only because it fails. If the estimate ever succeeded, the claim under test would be
+ * TRUE and this script would be submitting a real registration — which is precisely the moment you
+ * want to have opted in deliberately.
  *
  * Usage: npx tsx scripts/check-proof-required.ts
  *        KESE_NETWORK=mainnet npx tsx scripts/check-proof-required.ts

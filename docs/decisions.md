@@ -1172,11 +1172,19 @@ action that carries no proof facts at all — which is the claim exactly as the 
 ordinary public transaction… with nothing but an RPC URL".
 
 **Run against mainnet as well, because assuming the two behave alike is the move this script exists
-to avoid** — they are different classes (`0x67dddd89…` vs `0x56ab118a…`). The answer is identical,
-line for line: 22 entrypoints, the same three non-admin, no `deposit`/`register`/`shield`, and
-`EMPTY_PROOF_FACTS` from the pool. Checks 1–5 are read-only RPC calls, so confirming it on mainnet
-cost nothing at all; only check 6 submits, and on mainnet it is skipped unless `KESE_MAINNET_ARMED`
-says otherwise.
+to avoid** — they are different classes (`0x67dddd89…` vs `0x56ab118a…`). All six checks answer
+identically, line for line: 22 entrypoints, the same three non-admin, no `deposit`/`register`/
+`shield`, `EMPTY_PROOF_FACTS` from the pool, and `Proof version (PROOF0) is not allowed` from the
+protocol.
+
+**The whole mainnet run moved 0.000000 STRK**, measured against the balance before and after.
+Checks 1–5 are read-only. Check 6 *would* submit, but the fee estimate is refused before anything
+reaches the chain, so the rejection is free.
+
+It still asks for `KESE_MAINNET_ARMED`, and the reason is worth stating: it is free **only because
+it fails**. If the estimate ever succeeded, the claim under test would be true and the script would
+be submitting a real registration — which is exactly the case where a deliberate opt-in earns its
+keep. A guard that only matters when the surprising thing happens is not overhead.
 
 There is no entrypoint to register with, and the single entrypoint that exists will not accept an
 action without a proof. On either network.
