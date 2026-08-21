@@ -6,7 +6,7 @@ threshold, and leaves the owner a complete audit trail.
 
 > *Kese* (Turkish): a money pouch. Your agent gets the pouch, never the vault.
 
-**Live demo → [kese-omega.vercel.app](https://kese-omega.vercel.app)**
+**Live demo → [kese-claim.vercel.app](https://kese-claim.vercel.app)**
 
 MIT · Node ≥ 24 · TypeScript + Cairo · 301 TS tests, 19 Cairo tests
 
@@ -199,7 +199,7 @@ The pool is not a cloak, and overstating it would be the easiest way to get some
 
 | | |
 |---|---|
-| Demo | [kese-omega.vercel.app](https://kese-omega.vercel.app) — the claim page, reading the live Sepolia escrow. The four recipient screens are reachable as clearly-labelled samples, because no funded link can exist until proving works. |
+| Demo | [kese-claim.vercel.app](https://kese-claim.vercel.app) — the claim page, reading the live Sepolia escrow. The four recipient screens are reachable as clearly-labelled samples, because no funded link can exist until proving works. |
 | Sepolia | register / shield / discover / transfer / withdraw exercised end to end; escrow deployed at [`0x1ff4c7…3108`](https://sepolia.starkscan.co/contract/0x1ff4c7f216a9e1452e4533e03f926e2b10c7868a085b52c6034bcaa3cf3108) |
 | Mainnet | pool reads verified against the live contract; the full flow compiles and node-executes in simulate mode. **No submitted mainnet transactions yet.** |
 | Blocker | the mainnet **proving service URL is not public**. Everything up to proof submission runs; that one call cannot. Tracked upstream, with a self-hosted prover as the fallback — see [`docs/decisions.md`](docs/decisions.md) D-037/D-040. |

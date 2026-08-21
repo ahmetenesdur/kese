@@ -866,7 +866,7 @@ database back to the repo, and prints its status to stderr. `pnpm dashboard` ser
 
 ## D-042 — The public demo ships without a credential on Vercel
 
-**Date:** 2026-08-21 · **Phase:** D · **Status:** live at https://kese-omega.vercel.app
+**Date:** 2026-08-21 · **Phase:** D · **Status:** live at https://kese-claim.vercel.app
 
 `demo_url` is the claim page. It cannot be the dashboard: that shows private balances over a
 loopback server with no authentication, and the absence of auth is only safe because there is no
@@ -905,3 +905,29 @@ the "the amount is public" notice was otherwise unreviewable by anyone without a
 
 **Not claimed:** there is no funded claim link behind the demo, because creating one still needs
 the proving service. The samples say so on their face.
+
+**Addendum (same day) — the demo now builds from git, and moved to `kese-claim.vercel.app`.**
+
+The first deployment was a file upload, which meant every update would be a manual re-upload and
+the live page could silently drift from `main`. `vercel.json` now drives the build from the
+repository on every push.
+
+The obstacle was never the wiring. It was that a normal install on Vercel fails: the workspace root
+*and* `@kese/core` depend on the Privacy SDK from GitHub Packages, so nothing short of a
+`read:packages` token gets `pnpm install` through — and that would mean storing a credential in a
+third-party service to install a package the claim page never uses. So the install command swaps in
+`apps/claim/vercel/package.json`, listing only the three packages the page needs plus vite. The
+checkout is ephemeral, so overwriting the root manifest there costs nothing.
+
+Rehearsed before pushing, against a fresh clone of `origin/main` with npm's user *and* global config
+pointed at empty files so the developer's own token could not make it pass: 91 packages installed,
+`@starkware-libs` never requested, and the build produced `index-B2G05xJk.js` — the same content
+hash as the artifact then serving. Vercel's own build produced that hash too.
+
+**Why the URL changed.** Vercel's API can create a git-linked project but cannot link an existing
+one, and the name `kese` was already taken by the upload-based project — which the API also offers
+no way to delete. Rather than keep two live copies of the demo, one of which would go stale, the
+git-linked project is `kese-claim` and the old one is paused. `kese-claim.vercel.app` is also the
+better name for a link a real recipient receives, which was the runner-up when the name was chosen.
+Moving now cost nothing: no external document pointed at the old URL yet. It would not have stayed
+cheap.

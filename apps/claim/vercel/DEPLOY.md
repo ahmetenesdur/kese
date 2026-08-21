@@ -1,6 +1,6 @@
 # Deploying the claim page
 
-Live at **https://kese-omega.vercel.app** — the project's `demo_url`.
+Live at **https://kese-claim.vercel.app** — the project's `demo_url`.
 
 The deployment builds from this repository on every push to `main`. `vercel.json` at the repo root
 drives it, and the one line that matters is the install command:
