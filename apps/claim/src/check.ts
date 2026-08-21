@@ -80,9 +80,11 @@ async function probe(found: Found): Promise<void> {
   }
 
   renderReport(
-    `<p class="note">The second check calls <code>wallet_strk20Balances</code>. It only reads, but
-     your wallet may ask you to approve sharing balances — that prompt is itself an answer, since a
-     wallet that has not implemented the method cannot ask.</p>
+    `<p class="note">The second check connects to your wallet, then calls
+     <code>wallet_strk20Balances</code>. Both steps are read-only, and your wallet will ask you to
+     approve the connection. Connecting first is what makes the answer mean something: the method
+     reports on an account, so without a session it fails for a reason that has nothing to do with
+     STRK20.</p>
      <div class="row"><button id="deep">Run the second check</button></div>`
   );
 
@@ -90,19 +92,36 @@ async function probe(found: Found): Promise<void> {
     const button = document.getElementById("deep") as HTMLButtonElement;
     button.disabled = true;
     button.textContent = "Asking the wallet…";
+
+    const { walletV6 } = await import("starknet");
+
+    // Connect FIRST. `supportedWalletApi` is a capability query and needs no session, but
+    // `strk20Balances` reports on an account — without an authorised connection there is no
+    // account to report on, and Ready answers a bare UNKNOWN_ERROR that means nothing. Splitting
+    // the two is what makes the result evidence: if this step fails the wallet was never asked
+    // about STRK20 at all, and saying so beats blaming a method that never ran.
+    let connected = false;
     try {
-      // starknet.js's own helper, so the call goes where the spec says it goes. It takes the
-      // tokens to report on; STRK has the same address on mainnet and Sepolia, and the wallet
-      // answers for whichever network it is currently on.
-      const { walletV6 } = await import("starknet");
-      const result = await walletV6.strk20Balances(found.wallet as never, [STRK_TOKEN]);
-      const count = Array.isArray(result) ? `${result.length} entr${result.length === 1 ? "y" : "ies"}` : typeof result;
-      log(`wallet_strk20Balances → answered (${count})`);
-      log(`  the method is implemented`);
+      const accounts = (await walletV6.requestAccounts(found.wallet as never)) as string[];
+      connected = accounts.length > 0;
+      log(`wallet_requestAccounts → ${accounts.length} account${accounts.length === 1 ? "" : "s"}`);
     } catch (error) {
-      log(`wallet_strk20Balances → ${describeError(error)}`);
-      log(`  a rejection here can mean either "not implemented" or "you declined" — the wording above is the wallet's own`);
+      log(`wallet_requestAccounts → ${describeError(error)}`);
+      log(`  the connection failed, so STRK20 was never asked about — not a verdict on the method`);
     }
+
+    if (connected) {
+      try {
+        const result = await walletV6.strk20Balances(found.wallet as never, [STRK_TOKEN]);
+        const n = Array.isArray(result) ? result.length : 0;
+        log(`wallet_strk20Balances → answered with ${n} entr${n === 1 ? "y" : "ies"}`);
+        log(`  the method is implemented`);
+      } catch (error) {
+        log(`wallet_strk20Balances → ${describeError(error)}`);
+        log(`  asked with a live connection, so this is the method's own answer`);
+      }
+    }
+
     renderReport();
   });
 }
