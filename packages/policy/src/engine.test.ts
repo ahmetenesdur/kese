@@ -339,6 +339,30 @@ describe("reservationOutcome", () => {
   });
 });
 
+describe("remainingDaily", () => {
+  // The owner approves on a phone, in seconds. "60 STRK, and 190 left today" is a decision;
+  // "approve?" is a reflex.
+  it("reports the full cap when nothing has been spent", async () => {
+    expect(await engine.remainingDaily(STRK, config)).toBe(250n);
+  });
+
+  it("subtracts active reservations, not just committed ones", async () => {
+    await engine.decide(request({ amount: 100n }), config);
+    expect(await engine.remainingDaily(STRK, config)).toBe(150n);
+  });
+
+  it("gives budget back when a reservation is released", async () => {
+    const decision = await engine.decide(request({ amount: 100n }), config);
+    if (decision.kind === "deny") throw new Error("expected a reservation");
+    await engine.releaseReservation(decision.reservationId);
+    expect(await engine.remainingDaily(STRK, config)).toBe(250n);
+  });
+
+  it("returns zero rather than a negative number for an unconfigured token", async () => {
+    expect(await engine.remainingDaily(ETH, config)).toBe(0n);
+  });
+});
+
 describe("decision log (audit trail)", () => {
   it("records allows and denies alike, newest first", async () => {
     await engine.decide(request({ amount: 10n }), config);

@@ -18,3 +18,9 @@ _to_delete/
 # Vendored SDK tarball (local unblock until read:packages scope is granted — see docs/decisions.md D-005)
 vendor/
 smoke-report*.json
+
+# Runtime policy state — spending history, never committed
+kese-policy.sqlite*
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

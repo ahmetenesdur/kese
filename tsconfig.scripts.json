@@ -12,6 +12,9 @@
       ],
       "@kese/policy": [
         "packages/policy/src/index.ts"
+      ],
+      "@kese/approvals": [
+        "packages/approvals/src/index.ts"
       ]
     }
   },

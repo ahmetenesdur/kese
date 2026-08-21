@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       "@kese/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)),
       "@kese/policy": fileURLToPath(new URL("./packages/policy/src/index.ts", import.meta.url)),
+      "@kese/approvals": fileURLToPath(new URL("./packages/approvals/src/index.ts", import.meta.url)),
     },
   },
 });

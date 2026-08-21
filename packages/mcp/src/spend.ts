@@ -13,17 +13,10 @@
  */
 
 import type { KeseWallet } from "@kese/core";
+import type { ApprovalChannel } from "@kese/approvals";
 import type { DenyCode, PaymentRequest, PolicyConfig, PolicyEngine } from "@kese/policy";
 
-/** A human decision. The one thing here with no real implementation to call in a test. */
-export interface ApprovalChannel {
-  request(ticket: {
-    id: string;
-    summary: string;
-    request: PaymentRequest;
-    reason: string;
-  }): Promise<"approved" | "denied" | "timeout">;
-}
+export type { ApprovalChannel };
 
 export interface SpendDeps {
   policy: PolicyEngine;
@@ -75,7 +68,7 @@ export async function spend(req: PaymentRequest, deps: SpendDeps): Promise<Spend
   let resolved = false;
   try {
     if (decision.kind === "needs_approval") {
-      const verdict = await askForApproval(req, decision, approvals, redact);
+      const verdict = await askForApproval(req, decision, reservationId, deps);
       if (verdict !== "approved") {
         resolved = true;
         await policy.releaseReservation(reservationId);
@@ -125,9 +118,10 @@ type ApprovalVerdict = "approved" | { reason: string };
 async function askForApproval(
   req: PaymentRequest,
   decision: { ticketId: string; reason: string },
-  approvals: ApprovalChannel | undefined,
-  redact: (input: unknown) => string
+  reservationId: string,
+  deps: SpendDeps
 ): Promise<ApprovalVerdict> {
+  const { approvals, policy, config, redact } = deps;
   if (!approvals) {
     return {
       reason:
@@ -136,11 +130,16 @@ async function askForApproval(
   }
 
   try {
+    // The reservation is already taken, so this figure is what remains AFTER this payment — which
+    // is the number the owner actually needs in order to decide.
+    const remaining = await policy.remainingDaily(req.token, config).catch(() => null);
+
     const verdict = await approvals.request({
       id: decision.ticketId,
+      reservationId,
       summary: summarize(req),
-      request: req,
       reason: decision.reason,
+      remainingDailyBudget: remaining === null ? undefined : `${remaining} (base units)`,
     });
     if (verdict === "approved") return "approved";
     return {

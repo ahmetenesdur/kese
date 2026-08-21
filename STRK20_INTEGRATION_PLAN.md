@@ -167,7 +167,7 @@ paying twice. `list_activity` currently serves Kese's own decision log — which
 never reached the chain — and the on-chain view (reading the pool's `Deposit` event and filtering on
 its first indexed key, never the transaction sender) is still to come with the dashboard.
 
-## 8. Phase B4 — `packages/approvals`: Telegram
+## 8. Phase B4 — `packages/approvals`: Telegram ✅ done 2026-08-21
 
 `needs_approval` ticket → message stating agent, amount, token, recipient, remaining daily budget,
 and **which rule fired** (`Decision.reason` already carries this) → inline Approve/Deny → resume.

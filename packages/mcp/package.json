@@ -13,7 +13,8 @@
     "@kese/core": "workspace:*",
     "@kese/policy": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.22.0",
-    "zod": "^3.24.0"
+    "zod": "^3.24.0",
+    "@kese/approvals": "workspace:*"
   },
   "types": "dist/index.d.ts"
 }

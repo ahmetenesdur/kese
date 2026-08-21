@@ -9,6 +9,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { buildWallet, createRedactor, resolveNetwork, resolveNetworkConfig, resolveSigner } from "@kese/core";
 import { createPolicyEngine } from "@kese/policy";
+import { createApprovalsFromEnv } from "@kese/approvals";
 import { createKeseMcpServer } from "./server.js";
 import { loadPolicyConfig } from "./config.js";
 
@@ -53,11 +54,38 @@ async function main(): Promise<void> {
     );
   }
 
+  const policy = createPolicyEngine({
+    dbPath: process.env.POLICY_DB_PATH ?? "./kese-policy.sqlite",
+  });
+
+  const approvals = createApprovalsFromEnv();
+  if (!approvals) {
+    console.error(
+      "WARNING: no Telegram approval channel configured (TELEGRAM_BOT_TOKEN / " +
+        "TELEGRAM_OWNER_CHAT_ID). Payments above the approval threshold will be DENIED, not " +
+        "auto-approved."
+    );
+  } else {
+    // Recovery. A restart mid-approval loses the promise spend() was awaiting but NOT the
+    // reservation it was holding, so that budget would stay held until the rolling window slid
+    // past it — invisibly, because nothing failed. Release them before serving any tool.
+    const stranded = await approvals.pendingReservations().catch(() => []);
+    for (const reservationId of stranded) {
+      await policy.releaseReservation(reservationId).catch(() => {
+        /* already resolved by a previous run; nothing to do */
+      });
+    }
+    if (stranded.length > 0) {
+      console.error(`Released ${stranded.length} reservation(s) stranded by a previous shutdown.`);
+    }
+  }
+
   const server = createKeseMcpServer({
-    policy: createPolicyEngine({ dbPath: process.env.POLICY_DB_PATH ?? "./kese-policy.sqlite" }),
+    policy,
     wallet,
     config: policyConfig.config,
     network: resolveNetwork(),
+    approvals: approvals ?? undefined,
     redact,
   });
 

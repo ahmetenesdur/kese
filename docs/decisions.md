@@ -373,3 +373,43 @@ Neither showed up in tests or typechecks, which is the point of running the thin
    Package builds now resolve `@kese/core` through node_modules to `dist`; pnpm orders them
    correctly because the workspace dependency is declared. The path mapping survives only in
    `tsconfig.scripts.json` and `vitest.config.ts`, where source resolution is what is wanted.
+
+### D-022 — Approvals: the owner check is the whole security model
+
+A bot token identifies the *bot*, not a person. Anyone who learns the bot's handle can message it,
+and a Telegram callback carries whatever chat it came from. Approving because "a callback arrived"
+would hand payment authority to a stranger, so `callback_query.from.id` is compared against
+`TELEGRAM_OWNER_CHAT_ID` on **every** update, before anything else is read.
+
+Everything that is not an explicit owner approval denies: timeout, unknown ticket, duplicate press
+on a resolved ticket, a send that never reached Telegram, a transport error. Silence is never
+consent (hard rule 4). A failed *poll*, by contrast, keeps looping — that is a network blip, and
+giving up there would strand every pending request; the timeout is what bounds the wait.
+
+**Half-configured is treated as unconfigured.** A bot token with no owner chat id returns no channel
+at all, because there is no safe chat to fall back to. No channel means every approval is denied,
+never auto-approved — and the server says so loudly at startup.
+
+**No dependency.** Telegram's Bot API is four HTTPS calls and Node 24 ships `fetch`. The project
+already carries one dependency workaround (D-005); fewer moving parts in the path that authorises
+payments is worth more than the convenience of a client library.
+
+### D-023 — Restart recovery: the reservation outlives the promise
+
+A restart mid-approval loses the promise `spend()` was awaiting, but **not** the policy reservation
+that approval was holding. That budget would then stay held until the rolling 24h window slid past
+it — invisibly, because nothing failed and nothing logged.
+
+Tickets are therefore persisted with their `reservationId`, and the MCP server releases every
+still-pending reservation at startup before serving a single tool. This is the reason the ticket
+record exists at all; the audit history is a side benefit.
+
+### D-024 — The runtime policy database was committed by mistake (fixed)
+
+`kese-policy.sqlite` and its WAL files were swept into commit `2f59617` by a `git add -A`. It is
+runtime state — a log of what the agent tried to spend — and has no business in the repository.
+Untracked and added to `.gitignore` (`*.sqlite*`).
+
+Two follow-ons: a unit test was constructing an approval store at the default `POLICY_DB_PATH` and
+so writing to the operator's real database, now pinned to `:memory:`; and `git add -A` is the habit
+that caused this, so prefer explicit paths when the working tree has untracked runtime files.

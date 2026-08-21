@@ -30,8 +30,10 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - [x] `packages/core`: SDK wrapper — `KeseWallet` (register/shield/payPrivate/withdraw/balances), chain submitter with 10-block sequencing, live wiring, proof timing. Smoke script now drives the library; verified on live Sepolia
 - [x] **note denomination ladder** (notes.ts) — `planLadder`/`selectNotes`/`ladderGaps`, 19 tests. Ladder + single reserve note (a full split shredded a large balance into 10k notes); exact-change preferred so a payment creates no new note to mature
 - [x] `packages/mcp`: 6 tools (prefixed `kese_*` — D-018), `idempotency_key` required by schema on every money tool, single guarded `spend()` pipeline so no path bypasses policy. Server refuses to start without a policy config. 46 tests incl. a real MCP client over in-memory transport
-- [ ] `packages/approvals`: Telegram bot — needs_approval ticket → message (who/how much/balance impact) → approve/deny → resume
+- [x] `packages/approvals`: Telegram — ticket → message (amount, recipient, which rule fired, budget left) → inline Approve/Deny → resume. Owner-chat check on every update; timeout/unknown/duplicate/transport-error all deny; tickets persisted so a restart releases stranded reservations. No client-library dependency (raw fetch). 23 tests
 - Acceptance: end-to-end private payment on Sepolia from Claude Desktop via MCP + Telegram approval on limit breach
+  - [x] MCP + policy + approval chain fully wired and testable today (`PROVING_MODE` simulate/mock)
+  - [ ] The on-chain half is gated on the proving URL (#147) — everything else is ready
 
 ## Phase C — Cairo: escrow claim-link (Days 5-7, can run parallel to B)
 - [ ] Adapt the reference escrow + add the **expiry & refund** extension (our contribution) — spec: contracts/escrow-claim/README.md

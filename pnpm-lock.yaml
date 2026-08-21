@@ -41,6 +41,9 @@ importers:
 
   packages/mcp:
     dependencies:
+      '@kese/approvals':
+        specifier: workspace:*
+        version: link:../approvals
       '@kese/core':
         specifier: workspace:*
         version: link:../core

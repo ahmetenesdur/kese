@@ -215,6 +215,14 @@ export function createPolicyEngine(options: PolicyEngineOptions): PolicyEngine {
       });
     },
 
+    async remainingDaily(token, cfg) {
+      const normalized = tryNormalizeAddress(token);
+      const dailyCap = lookupByAddress(cfg.dailyCap, token);
+      if (normalized === null || dailyCap === undefined) return 0n;
+      const used = store.sumReservedSince(normalized, now() - DAY_MS);
+      return used >= dailyCap ? 0n : dailyCap - used;
+    },
+
     async reservationOutcome(reservationId) {
       const reservation = store.getReservation(reservationId);
       if (!reservation) return null;

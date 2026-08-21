@@ -61,6 +61,9 @@ export interface PolicyEngine {
     reservationId: string
   ): Promise<{ state: "active" | "committed" | "released"; receiptJson?: string } | null>;
 
+  /** How much of a token's rolling 24h budget is still available, for approval context. */
+  remainingDaily(token: Address, cfg: PolicyConfig): Promise<bigint>;
+
   /** Audit view: the decision log, newest first. */
   recentDecisions(limit?: number): Promise<DecisionLogEntry[]>;
   close(): void;
