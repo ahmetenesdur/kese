@@ -1,4 +1,4 @@
-<img src="apps/claim/public/favicon.svg" width="44" alt="" align="left" hspace="12" vspace="2">
+<img src="docs/kese-mark.svg" width="44" alt="" align="left" hspace="12" vspace="2">
 
 # Kese
 

@@ -1,0 +1,13 @@
+<!--
+  The README's copy of the mark, and the only one with a fixed colour.
+
+  GitHub's page theme is chosen in GitHub's settings; `prefers-color-scheme` inside an SVG follows
+  the operating system. Someone reading on GitHub's dark theme with a light OS would get the
+  near-white mark on a dark page — invisible. So this one is a neutral mid-tone that holds on both
+  grounds, and it is the exception that proves the rule: everywhere we control the surface, the
+  mark uses currentColor and has no colour of its own.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#8a909c">
+  <path d="M6.08 6.9A8.5 8.5 0 0 1 17.92 6.9Z"></path>
+  <path d="M4.09 9.9A8.5 8.5 0 1 0 19.91 9.9Z"></path>
+</svg>
