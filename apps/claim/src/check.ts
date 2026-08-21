@@ -14,11 +14,24 @@
 
 import { describeError, isPrivacyCapable } from "./wallet-capability.js";
 
+/** STRK. The same address on mainnet and Sepolia, so the probe needs no network configuration. */
+const STRK_TOKEN = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+
 const app = document.getElementById("app") as HTMLDivElement;
 
+/**
+ * What `createStore().getWallets()` hands back is a **Wallet Standard** wallet, not the legacy
+ * window object. It has `name`, `version` and a `features` map — no `id`, and no `request()` of its
+ * own. The first version of this page assumed otherwise, found no `request`, and printed "this
+ * wallet exposes no request() method" as though that were a fact about the wallet. It was a fact
+ * about the bug.
+ *
+ * Everything goes through starknet.js's own `walletV6` helpers now, which know that the callable
+ * lives at `features["starknet:walletApi"].request`.
+ */
 interface Found {
-  id: string;
   name: string;
+  version?: string;
   icon?: string;
   wallet: unknown;
 }
@@ -51,7 +64,9 @@ function renderReport(extra = ""): void {
 async function probe(found: Found): Promise<void> {
   app.innerHTML = `<p class="sub" style="margin:0">Confirm the connection in ${escape(found.name)}…</p>`;
   report.length = 0;
-  log(`wallet: ${found.name} (${found.id})`);
+  log(`wallet: ${found.name}${found.version ? ` v${found.version}` : ""}`);
+  const features = (found.wallet as { features?: Record<string, unknown> }).features ?? {};
+  log(`  starknet:walletApi feature: ${"starknet:walletApi" in features ? "present" : "ABSENT"}`);
 
   const { walletV6 } = await import("starknet");
 
@@ -76,15 +91,17 @@ async function probe(found: Found): Promise<void> {
     button.disabled = true;
     button.textContent = "Asking the wallet…";
     try {
-      const request = (found.wallet as { request?: (a: unknown) => Promise<unknown> }).request;
-      if (typeof request !== "function") {
-        log(`wallet_strk20Balances → this wallet exposes no request() method`);
-      } else {
-        const result = await request.call(found.wallet, { type: "wallet_strk20Balances" });
-        log(`wallet_strk20Balances → answered (${Array.isArray(result) ? `${result.length} entries` : typeof result})`);
-      }
+      // starknet.js's own helper, so the call goes where the spec says it goes. It takes the
+      // tokens to report on; STRK has the same address on mainnet and Sepolia, and the wallet
+      // answers for whichever network it is currently on.
+      const { walletV6 } = await import("starknet");
+      const result = await walletV6.strk20Balances(found.wallet as never, [STRK_TOKEN]);
+      const count = Array.isArray(result) ? `${result.length} entr${result.length === 1 ? "y" : "ies"}` : typeof result;
+      log(`wallet_strk20Balances → answered (${count})`);
+      log(`  the method is implemented`);
     } catch (error) {
       log(`wallet_strk20Balances → ${describeError(error)}`);
+      log(`  a rejection here can mean either "not implemented" or "you declined" — the wording above is the wallet's own`);
     }
     renderReport();
   });
@@ -92,7 +109,7 @@ async function probe(found: Found): Promise<void> {
 
 async function main(): Promise<void> {
   const { createStore } = await import("@starknet-io/get-starknet-discovery");
-  const wallets = createStore().getWallets() as { id: string; name: string; icon?: string }[];
+  const wallets = createStore().getWallets() as { name: string; version?: string; icon?: string }[];
 
   if (wallets.length === 0) {
     app.innerHTML = `<p class="sub" style="margin:0">No Starknet wallet found in this browser.
@@ -115,7 +132,7 @@ async function main(): Promise<void> {
   for (const button of app.querySelectorAll<HTMLButtonElement>("button[data-i]")) {
     button.addEventListener("click", () => {
       const w = wallets[Number(button.dataset.i)]!;
-      void probe({ id: w.id, name: w.name, icon: w.icon, wallet: w });
+      void probe({ name: w.name, version: w.version, icon: w.icon, wallet: w });
     });
   }
 }

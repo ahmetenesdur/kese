@@ -1326,3 +1326,47 @@ plan is relied on, not during it.
 ran. This one was mine, it sat in a decision record as a tick, and it took another team's probe to
 surface it. The claim page still names Ready — correctly, as far as the evidence now goes — but the
 difference between "correct" and "checked" is the entire lesson of this project.
+
+---
+
+## D-051 — Ready implements STRK20. And the check that proved it had a bug in its second half.
+
+**Date:** 2026-08-21 · **Phase:** M · **Status:** answer good, tool fixed
+
+**The answer we needed:** Ready X reports `wallet_supportedWalletApi → 0.10.3, 0.7.2`. That clears
+the bar, so the wallet half of the G1 plan (D-046) stands, and the assumption D-050 flagged as
+unsourced is now measured rather than believed. Braavos, per another team on #121, does not.
+
+**The bug.** The second half of the probe reported:
+
+```
+wallet_strk20Balances → this wallet exposes no request() method
+```
+
+That was a statement about our code, printed as though it were a fact about Ready. The owner caught
+it from the outside, without reading any of this, by noticing the thing the sentence implies did not
+happen: *no prompt ever appeared in the wallet.* A page claiming to have asked a wallet something,
+where the wallet was never asked.
+
+`createStore().getWallets()` returns **Wallet Standard** wallets. They carry `name`, `version` and a
+`features` map — no `id`, which is why the header line printed `(undefined)` and should have been
+the first clue, and no `request()` of their own. The callable lives at
+`features["starknet:walletApi"].request`, which is exactly what starknet.js's own helpers do:
+
+```js
+function strk20Balances(walletWSF, tokens) {
+  return walletWSF.features["starknet:walletApi"].request({
+    type: "wallet_strk20Balances", params: { tokens },
+  });
+}
+```
+
+Now used directly, rather than reaching into the feature map by hand. The version check worked all
+along because it went through `walletV6.supportedWalletApi`, the library's helper; the half that
+broke was the half where I wrote the access myself.
+
+**Why it got shipped.** The pure logic was unit-tested, the empty state was checked in a browser,
+and the wallet path was untestable here — no extension in this environment. That was stated at the
+time, and stating it is not the same as covering it. The honest reading is that an untestable path
+should ship with output that cannot be mistaken for evidence: "no request() method" reads as a
+finding, where "could not reach this wallet's API" would have read as a failure to look.
