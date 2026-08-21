@@ -12,6 +12,7 @@ import { createPolicyEngine } from "@kese/policy";
 import { createApprovalsFromEnv } from "@kese/approvals";
 import { createKeseMcpServer } from "./server.js";
 import { loadPolicyConfig } from "./config.js";
+import { createClaimStore } from "./claims.js";
 
 async function main(): Promise<void> {
   try {
@@ -46,6 +47,19 @@ async function main(): Promise<void> {
     mode: net.value.provingServiceUrl ? "service" : "simulate",
     redact,
   });
+
+  if (!net.value.escrowAddress) {
+    console.error(
+      "WARNING: ESCROW_CONTRACT_ADDRESS is not set — kese_create_claim_link will refuse rather " +
+        "than lock funds behind an escrow that does not exist."
+    );
+  }
+  if (!process.env.CLAIM_BASE_URL?.trim()) {
+    console.error(
+      "WARNING: CLAIM_BASE_URL is not set — claim links have nowhere to point, so " +
+        "kese_create_claim_link will refuse."
+    );
+  }
 
   if (!net.value.provingServiceUrl) {
     console.error(
@@ -86,6 +100,8 @@ async function main(): Promise<void> {
     config: policyConfig.config,
     network: resolveNetwork(),
     approvals: approvals ?? undefined,
+    claims: createClaimStore(process.env.POLICY_DB_PATH ?? "./kese-policy.sqlite"),
+    claimBaseUrl: process.env.CLAIM_BASE_URL?.trim(),
     redact,
   });
 

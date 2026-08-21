@@ -12,7 +12,8 @@
  * past hours later. That is why the whole execution phase sits inside a try/finally.
  */
 
-import { describeAmount, type KeseWallet, type Network } from "@kese/core";
+import { createClaimLink, describeAmount, type KeseWallet, type Network } from "@kese/core";
+import type { ClaimStore } from "./claims.js";
 import type { ApprovalChannel } from "@kese/approvals";
 import type { DenyCode, PaymentRequest, PolicyConfig, PolicyEngine } from "@kese/policy";
 
@@ -29,10 +30,24 @@ export interface SpendDeps {
   withdrawTo?: string;
   /** Used to render amounts as whole tokens in the approval message a human reads. */
   network?: Network;
+  /** Where claim-link refund secrets live. Absent means claim links are unavailable. */
+  claims?: ClaimStore;
+  /** Base URL the claim page is served from. */
+  claimBaseUrl?: string;
 }
 
 export type SpendOutcome =
-  | { status: "paid"; txHash?: string; blockNumber?: number; replayed?: boolean }
+  | {
+      status: "paid";
+      txHash?: string;
+      blockNumber?: number;
+      replayed?: boolean;
+      /**
+       * Present ONLY on the call that created a claim link, never on a replay — the secret is
+       * shown once (hard rule 7) and is stored nowhere, so there is nothing to show again.
+       */
+      claimUrl?: string;
+    }
   /**
    * Compiled and checked against live pool state, but NOT submitted — no proving service is
    * configured. Kept distinct from "paid" on purpose: an LLM told a payment succeeded will go on to
@@ -93,7 +108,7 @@ export async function spend(req: PaymentRequest, deps: SpendDeps): Promise<Spend
       }
     }
 
-    const receipt = await execute(req, wallet, deps);
+    const { receipt, claimUrl } = await execute(req, wallet, deps);
 
     if (receipt.status === "failed") {
       resolved = true;
@@ -120,7 +135,9 @@ export async function spend(req: PaymentRequest, deps: SpendDeps): Promise<Spend
     resolved = true;
     const stored: StoredReceipt = { txHash: receipt.txHash, blockNumber: receipt.blockNumber };
     await policy.commitReservation(reservationId, JSON.stringify(stored));
-    return { status: "paid", ...stored };
+    // claimUrl is deliberately NOT part of the stored receipt: a replay must not be able to
+    // resurrect it.
+    return claimUrl ? { status: "paid", ...stored, claimUrl } : { status: "paid", ...stored };
   } catch (error) {
     return { status: "failed", reason: redact(error) };
   } finally {
@@ -213,24 +230,79 @@ function summarize(req: PaymentRequest, net: Network = "sepolia"): string {
   return `${req.kind} of ${describeAmount(req.amount, req.token, net)}${target}`;
 }
 
-async function execute(req: PaymentRequest, wallet: KeseWallet, deps: SpendDeps) {
+interface Executed {
+  receipt: Awaited<ReturnType<KeseWallet["payPrivate"]>>;
+  /** Only a freshly created claim link produces one. */
+  claimUrl?: string;
+}
+
+async function execute(
+  req: PaymentRequest,
+  wallet: KeseWallet,
+  deps: SpendDeps
+): Promise<Executed> {
   switch (req.kind) {
-    case "private_transfer":
+    case "private_transfer": {
       if (!req.recipient) throw new Error("private_transfer requires a recipient");
-      return wallet.payPrivate(req.token, req.amount, req.recipient);
+      return { receipt: await wallet.payPrivate(req.token, req.amount, req.recipient) };
+    }
 
     case "withdraw": {
       const to = req.recipient ?? deps.withdrawTo;
       if (!to) throw new Error("withdraw requires a destination address");
-      return wallet.withdraw(req.token, req.amount, to);
+      return { receipt: await wallet.withdraw(req.token, req.amount, to) };
     }
 
     case "claim_link":
-      // Phase C. Failing here rather than silently doing something else keeps the tool honest.
-      throw new Error(
-        "claim links need the escrow contract, which is not deployed yet (ESCROW_CONTRACT_ADDRESS unset)"
-      );
+      return createLink(req, wallet, deps);
   }
+}
+
+/**
+ * Create a claim link: generate the secrets, lock the funds, hand back the URL.
+ *
+ * The refund secret is written to the store BEFORE the escrow is created. If the order were
+ * reversed and the process died in between, the funds would be locked on-chain with the only key
+ * to them gone — unclaimable and unrefundable, forever. A stored secret for an escrow that never
+ * materialised is merely a dead row.
+ */
+async function createLink(
+  req: PaymentRequest,
+  wallet: KeseWallet,
+  deps: SpendDeps
+): Promise<Executed> {
+  if (!deps.claims || !deps.claimBaseUrl) {
+    throw new Error(
+      "claim links need a claim store and a claim page URL (CLAIM_BASE_URL) — refusing to lock funds behind a secret we cannot keep"
+    );
+  }
+
+  const link = createClaimLink(deps.claimBaseUrl);
+  const expiryBlocks = deps.config.claimLinkDefaultExpiryBlocks;
+
+  await deps.claims.put({
+    idempotencyKey: req.idempotencyKey,
+    commitmentHash: link.commitmentHash,
+    refundSecret: link.refundSecret,
+    token: req.token,
+    amount: req.amount,
+    // Recorded relative to now; the exact block the contract sees is set from the proving block.
+    expiryBlock: expiryBlocks,
+  });
+
+  const receipt = await wallet.createClaimEscrow({
+    token: req.token,
+    amount: req.amount,
+    commitmentHash: link.commitmentHash,
+    refundHash: link.refundHash,
+    expiryBlocks,
+  });
+
+  // Shown once, and only if the funds are actually locked. Returning a URL for an escrow that
+  // failed would hand out a link to money that is not there.
+  return receipt.status === "confirmed"
+    ? { receipt, claimUrl: link.claimUrl }
+    : { receipt };
 }
 
 function parseReceipt(json: string | undefined): StoredReceipt {

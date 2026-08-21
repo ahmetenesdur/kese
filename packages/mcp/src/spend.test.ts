@@ -16,6 +16,7 @@ import { Mocknet } from "@starkware-libs/starknet-privacy-sdk/testing";
 import { createKeseWallet, type KeseWallet } from "@kese/core";
 import { createPolicyEngine, type PolicyConfig, type PolicyEngine } from "@kese/policy";
 import { spend, type ApprovalChannel, type SpendDeps } from "./spend.js";
+import { createClaimStore } from "./claims.js";
 
 let mocknet: Mocknet;
 let policy: PolicyEngine;
@@ -337,6 +338,76 @@ describe("simulate mode must not report a payment (honest reporting)", () => {
       })
     );
     expect(outcome.status === "simulated" && outcome.reason).toMatch(/not submitted/i);
+  });
+});
+
+describe("claim links", () => {
+  const claimDeps = () => {
+    const store = createClaimStore(":memory:");
+    return {
+      store,
+      deps: deps({
+        claims: store,
+        claimBaseUrl: "https://kese.example/claim",
+        wallet: {
+          ...wallet,
+          createClaimEscrow: async () => ({ status: "confirmed" as const, txHash: "0xesc" }),
+        },
+      }),
+    };
+  };
+
+  it("returns the claim URL, once", async () => {
+    const { deps: d } = claimDeps();
+    const outcome = await spend(request({ kind: "claim_link", recipient: undefined }), d);
+    expect(outcome.status).toBe("paid");
+    expect(outcome.status === "paid" && outcome.claimUrl).toMatch(/^https:\/\/kese\.example\/claim/);
+  });
+
+  it("never puts the refund secret in the outcome", async () => {
+    // It is the payer's only route back to the funds after expiry. The outcome goes straight into
+    // an LLM's context, and from there wherever the model decides to repeat it.
+    const { store, deps: d } = claimDeps();
+    const outcome = await spend(request({ kind: "claim_link", recipient: undefined }), d);
+    const stored = await store.refundableAt(Number.MAX_SAFE_INTEGER);
+    expect(stored).toHaveLength(1);
+    expect(JSON.stringify(outcome)).not.toContain(stored[0]!.refundSecret);
+  });
+
+  it("persists the refund secret so the payer can still reclaim after a restart", async () => {
+    const { store, deps: d } = claimDeps();
+    await spend(request({ kind: "claim_link", recipient: undefined }), d);
+    const stored = await store.refundableAt(Number.MAX_SAFE_INTEGER);
+    expect(stored[0]!.refundSecret).toBeTruthy();
+  });
+
+  it("refuses to re-show the secret on a replay, and does not lock a second escrow", async () => {
+    // Hard rule 7 says the secret is shown once. A retry legitimately cannot get it back — and
+    // generating a fresh one would lock a second lot of funds behind a link nobody asked for.
+    const { deps: d } = claimDeps();
+    const req = request({ kind: "claim_link", recipient: undefined });
+    const first = await spend(req, d);
+    const replay = await spend(req, d);
+    expect(first.status === "paid" && first.claimUrl).toBeTruthy();
+    expect(replay.status === "paid" && replay.claimUrl).toBeUndefined();
+    expect(replay.status === "paid" && replay.replayed).toBe(true);
+  });
+
+  it("still goes through policy — an over-cap claim link is refused", async () => {
+    const { deps: d } = claimDeps();
+    const outcome = await spend(
+      request({ kind: "claim_link", recipient: undefined, amount: 150n }),
+      d
+    );
+    expect(outcome).toMatchObject({ status: "denied", code: "per_tx_cap_exceeded" });
+  });
+
+  it("fails closed when no claim store is configured", async () => {
+    const outcome = await spend(
+      request({ kind: "claim_link", recipient: undefined }),
+      deps({ claimBaseUrl: "https://x" })
+    );
+    expect(outcome.status).toBe("failed");
   });
 });
 

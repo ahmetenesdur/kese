@@ -237,13 +237,24 @@ describe("read-only tools", () => {
 });
 
 describe("claim links", () => {
-  it("says plainly that the escrow is not deployed rather than pretending to pay", async () => {
+  it("refuses rather than locking funds behind a secret it cannot keep", async () => {
+    // No claim store and no claim page configured. Creating the escrow anyway would put money
+    // on-chain against a refund secret with nowhere to live — unclaimable and unrefundable.
     const result = await client.callTool({
       name: "kese_create_claim_link",
       arguments: { token: "STRK", amount: "1", idempotency_key: "idem-claim-001" },
     });
     const payload = parse(result);
     expect(payload.status).toBe("failed");
-    expect(String(payload.reason)).toMatch(/escrow/i);
+    expect(String(payload.reason)).toMatch(/claim store|CLAIM_BASE_URL/i);
+  });
+
+  it("warns the model that the URL is returned once and cannot be retrieved", async () => {
+    // The model decides what to do with the link. If it assumes a retry can fetch it again, it
+    // will hand the recipient nothing and the funds sit until expiry.
+    const { tools } = await client.listTools();
+    const tool = tools.find((t) => t.name === "kese_create_claim_link")!;
+    expect(tool.description).toMatch(/ONCE/);
+    expect(tool.description).toMatch(/will NOT return it again/i);
   });
 });

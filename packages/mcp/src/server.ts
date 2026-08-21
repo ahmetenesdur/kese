@@ -20,6 +20,7 @@ import { z } from "zod";
 import { TOKENS, formatTokenAmount, tokenSymbol, type KeseWallet, type Network } from "@kese/core";
 import type { PolicyConfig, PolicyEngine } from "@kese/policy";
 import { spend, type ApprovalChannel } from "./spend.js";
+import type { ClaimStore } from "./claims.js";
 
 export interface ServerDeps {
   policy: PolicyEngine;
@@ -27,6 +28,8 @@ export interface ServerDeps {
   config: PolicyConfig;
   network: Network;
   approvals?: ApprovalChannel;
+  claims?: ClaimStore;
+  claimBaseUrl?: string;
   redact: (input: unknown) => string;
   agentId?: string;
 }
@@ -104,6 +107,8 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
         config: deps.config,
         approvals: deps.approvals,
         network: deps.network,
+        claims: deps.claims,
+        claimBaseUrl: deps.claimBaseUrl,
         redact: deps.redact,
       }
     );
@@ -285,7 +290,9 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
       description:
         "Pay someone who is NOT registered with STRK20, by locking funds in an escrow they can " +
         "claim with a secret link. The claimed AMOUNT is public (escrow credits an open note); the " +
-        "claimer's identity is not. Requires the escrow contract to be deployed.",
+        "claimer's identity is not. Requires the escrow contract to be deployed.\n\n" +
+        "The claim URL is returned ONCE and stored nowhere — pass it straight to the recipient. " +
+        "Retrying with the same idempotency_key will NOT return it again.",
       inputSchema: {
         token: tokenParam,
         amount: amountParam,

@@ -40,7 +40,7 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - [x] **19 snforge tests**, security guarantees **mutation-verified** — which caught a test that passed for the wrong reason (D-028)
 - [x] Sepolia deploy: `0x1ff4c7f2…3108`, `pool()` verified on-chain (D-032)
 - [x] Claim-link secrets: two independent CSPRNG felts, commitment pinned against Cairo from both sides (D-031); escrow calldata builders tested for positional order
-- [ ] Wire `create_claim_link` end-to-end through the pool invoke — buildable now, but not executable until #147
+- [x] Wire `create_claim_link` through the pool invoke: withdraw-to-escrow + invoke in ONE transaction; two CSPRNG secrets; the refund secret persisted server-side, the claim URL returned **once** and stored nowhere. Not executable until #147, but fully wired and tested
 - [ ] Claim page (apps/dashboard) — with the honest "the amount is public" notice
 - **Watch (D-033):** claim/refund each credit an open note, which makes the ESCROW the pool's screening subject. In the SDK's unreleased version an unlisted depositor defaults to `Required` and only the pool governor can list one. Verified on-chain: both pools are still `v2.0` with the older allow-by-default block list and our escrow is not blocked — **viable today**, at risk if the pool upgrades mid-sprint. Ask on #147.
 - Fallback: if Cairo stalls → cut claim links, ship "registered-only payments" (contracts field stays empty; acceptable loss). Softer fallback first: escrow pays the claimer by plain ERC-20 transfer instead of an open note — claimer loses privacy, funds stay recoverable.

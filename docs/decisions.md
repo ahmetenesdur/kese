@@ -631,3 +631,28 @@ Three fixes, because one was not enough:
 against the real sources, and the one failing test was failing *because* of the shadow, not because
 of a defect. But that was luck, not process. Anything that had regressed in `@kese/core` during
 that hour would have gone unnoticed.
+
+### D-035 — Claim links: what is written down, and in which order
+
+Two secrets per link, with opposite handling:
+
+- The **claim** secret is a bearer token for one payment. Handing it to the recipient is the agent's
+  whole job, so it reaches the LLM once — and is stored **nowhere**. A stolen copy of the database
+  yields the refund path and never the claim path.
+- The **refund** secret is the payer's only route back to the funds after expiry. It persists
+  server-side and never appears in a tool result.
+
+**Write order matters.** The refund secret goes into the store *before* the escrow is created. The
+other way round, a process that died in between would leave funds locked on-chain with the only key
+to them gone — unclaimable and unrefundable, permanently. A stored secret for an escrow that never
+materialised is just a dead row.
+
+**A replay cannot re-show the URL.** `claimUrl` is deliberately excluded from the receipt stored
+against the reservation, so a retried idempotency key returns `replayed: true` and no link. Hard
+rule 7 says shown once, and generating a fresh secret instead would lock a second lot of funds
+behind a link nobody asked for. The tool description tells the model this outright, because a model
+that assumes it can fetch the link again hands the recipient nothing.
+
+**Withdraw and invoke ride in one pool transaction.** Splitting them would leave a window where the
+escrow holds funds it has no commitment for — and the next deposit could claim them as its own
+funding, which is exactly what the contract's funding check is there to prevent.
