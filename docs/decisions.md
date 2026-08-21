@@ -1141,31 +1141,43 @@ to be incomplete.
 
 ---
 
-## D-047 — We asked the chain, and it answered: proofs are verified
+## D-047 — We asked the chain, and it answered: `EMPTY_PROOF_FACTS`
 
-**Date:** 2026-08-21 · **Phase:** M · **Status:** settled empirically
+**Date:** 2026-08-21 · **Phase:** M · **Status:** settled, six ways
 
 D-044 concluded from the pool's ABI and the SDK's source that the Day-0 guide's "registering and
-shielding need no proof" is wrong. That was inference. This is the experiment.
+shielding need no proof" is wrong. That was inference. `scripts/check-proof-required.ts` is the
+experiment, and it is deliberately over-built: the claim decides whether six blocked teams have a
+way forward, and telling the maintainers they are wrong is only worth doing if there is no hole
+left to point at.
 
-`scripts/check-proof-required.ts` builds a real `apply_actions` register call carrying a **mock**
-proof and submits it to Sepolia. If the pool did not genuinely verify proofs, it would land — and
-the guide would be right, and our eligibility problem would be over. It does not land:
+**A first attempt was not good enough, and it is worth saying why.** Submitting a register with a
+*mock* proof gets rejected — but a sceptic can answer "of course a forged proof fails; that says
+nothing about whether a proof is needed at all". Worse, submitting through our own account buries
+the reason: `__execute__` unwraps the failed call and panics with `Result::unwrap failed`, which
+names nothing. The account has to be taken out of the path before the pool can be heard.
 
-```
-41: Transaction execution error: Invalid proof facts:
-Proof version 88314448135728 (PROOF0) is not allowed under this protocol version.
-```
+What the deployed contract says, read from the chain rather than from the SDK's bundled ABI:
 
-The chain names the mock proof and refuses it. Registration is not an ordinary public transaction;
-there is no route into the pool that skips proving. Four independent lines of evidence now agree —
-the ABI has no other entrypoint, the SDK proves unconditionally, live mainnet transactions carry
-the attestation pattern the contract requires, and the chain rejects a forged proof by name.
+| # | Check | Result |
+|---|---|---|
+| 1 | External entrypoints on the deployed class | 22, of which **3** are non-admin: `__execute__`, `compile_and_panic`, `apply_actions` |
+| 2 | `deposit` / `register` / `shield` / `register_public_key` | **do not exist** — error 21, "Requested entrypoint does not exist" |
+| 3 | `compile_and_panic`, the only other non-admin entrypoint | reverts by design (`ZERO_PRIVATE_KEY`); it is the compile-and-revert helper the mock prover reads its output from, and never changes state |
+| 4 | `apply_actions` called **directly on the pool with no proof** | **`EMPTY_PROOF_FACTS`** — the contract's own words |
+| 5 | The same call with a mock proof | `Invalid proof facts: Proof version … (PROOF0) is not allowed under this protocol version` |
 
-Kept as a script rather than a note because it is re-runnable. If the protocol ever changes, this
-reports the change instead of us rediscovering it months later.
+Check 4 is the one that settles it: not a forged proof being caught, but the contract refusing an
+action that carries no proof facts at all — which is the claim exactly as the guide words it, "an
+ordinary public transaction… with nothing but an RPC URL".
+
+There is no entrypoint to register with, and the single entrypoint that exists will not accept an
+action without a proof. Both networks expose the same 22 entrypoints.
+
+Kept as a re-runnable script rather than a note. If the protocol ever changes, this reports the
+change instead of us rediscovering it months later.
 
 **What it does not settle:** the guide is wrong in a way that costs other teams time. Six are
-waiting on #121, #124, #135 and #147, and at least some of them will read "no proof needed" and
-spend a day proving it to themselves, as we nearly did. Reporting it upstream is the useful move;
-that is the owner's call to make, since it is their name on the comment.
+waiting on #121, #124, #135 and #147, and some of them will read "no proof needed" and spend a day
+proving it to themselves, as we nearly did. Reporting it is the useful move; it is the owner's call,
+since it is their name on the comment.
