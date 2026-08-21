@@ -102,7 +102,7 @@ Two design rules are baked into the API rather than left to callers:
   reserved budget and must release it; `Receipt.status === "failed"` makes that part of the return
   type instead of a try/catch each caller has to remember.
 
-## 6. Phase B2 — `packages/core/src/notes.ts`: the denomination ladder
+## 6. Phase B2 — `packages/core/src/notes.ts`: the denomination ladder ✅ done 2026-08-21
 
 The problem: change notes mature 10 blocks after creation, so a burst-paying agent stalls behind
 its own change. The strategy: keep the shielded balance split across a ladder of round
@@ -115,6 +115,26 @@ denominations so several payments can be funded from distinct mature notes in pa
 
 Round denominations do double duty: they are what makes parallel payments possible *and* they blunt
 amount-fingerprinting (§3). Unit-testable with no chain — do it under vitest like the policy engine.
+
+**Delivered** as `planLadder` / `selectNotes` / `ladderGaps`, 19 tests. Three decisions worth
+carrying forward:
+
+- **Ladder + reserve, not a full split.** The first draft also parked the remainder across the
+  ladder largest-first — minimal change-making, and the wrong goal. The top denomination is fixed,
+  so a balance far above it shreds: a million units against a ladder topping out at 100 produced
+  **10,019 notes**, each carrying a pool fee, for no extra parallelism (the burst quota was already
+  met). Now the surplus stays as one reserve note that rebalances draw from. Note count tracks the
+  ladder's shape, never the balance. A test caught this, not review.
+- **Exact change is the goal, not a nicety.** A payment whose notes sum exactly creates no change
+  note, so nothing new has to mature and the rest of the ladder stays spendable. `selectNotes`
+  searches for an exact subset first (bounded DFS, greedy fallback).
+- **Unknown maturity fails closed.** `Note.created` is optional in the SDK; absent means "treat as
+  immature". Spending a note that turns out to be immature produces an invalid proof, and
+  "insufficient balance" is a far more legible failure than a proof rejection.
+
+**Open — owner's call:** `DEFAULT_BURST = 3` is the tuning knob and it is a product decision, not a
+technical one. Higher means more concurrent payments but more notes to mint up front; lower means
+cheaper shielding but an agent that stalls sooner. Three matches the demo script.
 
 ## 7. Phase B3 — `packages/mcp`: tools
 
