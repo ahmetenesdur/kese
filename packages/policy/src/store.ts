@@ -12,8 +12,10 @@
  * place for one. They are summed in JS as bigint rather than by SQL SUM().
  */
 
+export { normalizeAddress, tryNormalizeAddress };
 import { DatabaseSync } from "node:sqlite";
-import type { Address, DenyCode, PaymentRequest } from "./types.js";
+import { normalizeAddress, tryNormalizeAddress } from "@kese/core";
+import type { DenyCode, PaymentRequest } from "./types.js";
 
 export type ReservationState = "active" | "committed" | "released";
 
@@ -56,21 +58,6 @@ CREATE TABLE IF NOT EXISTS decisions_log (
   code        TEXT
 );
 `;
-
-/** Starknet addresses are numbers: 0x0a11ce and 0x00000a11ce are the same account. */
-export function normalizeAddress(address: Address): string {
-  return `0x${BigInt(address).toString(16)}`;
-}
-
-/** normalizeAddress, but null instead of throwing — callers here must fail closed, not crash. */
-export function tryNormalizeAddress(address: Address): string | null {
-  try {
-    const normalized = normalizeAddress(address);
-    return BigInt(normalized) >= 0n ? normalized : null;
-  } catch {
-    return null;
-  }
-}
 
 export class PolicyStore {
   private readonly db: DatabaseSync;

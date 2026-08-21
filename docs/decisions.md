@@ -236,3 +236,98 @@ pins three things that are easy to get wrong and invisible when wrong:
 Also fixed along the way: config was looked up by string key, so a zero-padded token address fell
 through to `token_not_configured` — a confusing denial for a token that *is* configured. Both the
 allowlist and the cap lookups now compare addresses numerically.
+
+---
+
+## Intel triage — upstream issue #121 (Aug 21, 2026)
+
+Three claims arrived from #121. Verified where verifiable rather than adopted on trust; one was
+half-right, one is unverifiable but actionable, one we are deliberately not acting on.
+
+### D-014 — `ContractDiscoveryProvider` IS exported — from `/testing`, not the package entry
+
+**Claim:** "not exported in the published SDK (v0.14.3-rc.5); implement contract-based discovery
+ourselves or abstract behind an interface."
+
+**Verdict: half right — correct observation, wrong conclusion. No workaround needed.**
+
+Checked against the actual published release commit `66e3caa`
+(`chore(sdk): release 0.14.3-rc.5 (#943)`), not just our working copy:
+
+| Import path | Present at rc.5 |
+|---|---|
+| `@starkware-libs/starknet-privacy-sdk` | **no** — 0 matches in `src/index.ts` |
+| `@starkware-libs/starknet-privacy-sdk/testing` | **yes** — `src/testing/index.ts:35` |
+
+`dist/testing/` ships in the tarball (`files: ["dist"]`, `exports["./testing"]`), and we already
+use it against the **live Sepolia pool**: `pnpm smoke:simulate` returns `discoverRequirement →
+Register (0)` and simulates a shield into 56 felts of `apply_actions`. Anyone importing from the
+package root would see exactly what #121 saw. This is D-007, already logged — the standing action
+is not to build a replacement but to re-decide before mainnet, since the vendor labels that subpath
+dev/testing.
+
+**However, #121 was right that something was wrong — just not this.** Chasing it exposed a real
+defect in our own Phase S work.
+
+### D-015 — Our vendored SDK was main HEAD, not the released rc.5 (fixed)
+
+`scripts/vendor-sdk.sh` pinned `36eac4e`, which was main HEAD at clone time — **8 days and several
+commits past** the rc.5 release. Its `package.json` still reads `0.14.3-rc.5` while its CHANGELOG
+carries an `## Unreleased` section above it, so the artefact was labelled rc.5 and was not rc.5.
+
+Not cosmetic: `src/internal/abi.ts` differs by 38 lines between the two — that is `PrivacyPoolABI`,
+the ABI we build the typed pool `Contract` from. Post-rc.5 it gained open-note screening policies
+and **retired the depositor block list**. Building a client ABI ahead of the deployed pool is how
+you ship a call that compiles and then reverts.
+
+**Fixed:** the script now pins `66e3caa`, the release commit, with the reasoning in a comment so
+the next bump is deliberate. Verified after rebuilding: `get_open_note_screening_policy` is absent
+from `PoolContractInterface` (it is a post-rc.5 addition), and all 71 tests, both typechecks and
+both smoke modes stay green on the downgrade.
+
+**Standing lesson:** vendoring pins a *commit*, and "latest main" is not "the version in
+package.json". This is a second, independent reason to get `read:packages` and install the real
+published tarball (D-005) — then there is nothing to get wrong.
+
+### D-016 — ~24 STRK proving reserve: unverified, but guarded
+
+**Claim:** proving transactions need roughly 24 STRK beyond `estimateInvokeFee`.
+
+**Verdict: cannot verify** — it needs a proving service (#147), and it is second-hand. Adopting the
+number as fact would be guessing; ignoring it would mean an agent that dies mid-burst with a raw
+RPC revert.
+
+**Built the guard, labelled the number.** `packages/core/src/fees.ts` exposes
+`assessGasHeadroom()` with `DEFAULT_PROVING_GAS_RESERVE_STRK = 24 STRK`, overridable via
+`PROVING_GAS_RESERVE_STRK` (0 disables). The smoke preflight now reports it:
+
+```
+✅ Gas headroom (STRK)   2999.9428 held, 24.1000 required (reserve 24.0000, unverified — #121)
+```
+
+The case worth testing is when the payment token *is* the gas token: reserve and amount compete for
+the same balance, and checking them separately is what silently under-funds a burst. Six tests,
+written first. Revise the constant once a real proof has actually been paid for.
+
+**Funding consequence:** a mainnet signer needs the reserve on top of the amount to be shielded —
+factor it into Phase M funding rather than discovering it at 2am on Day 8.
+
+### D-017 — Alpha-sepolia endpoints from the app bundle: not adopted
+
+**Claim:** proving/discovery endpoints for alpha-sepolia appear in the official app's JS bundle,
+open CORS, usable status unconfirmed.
+
+**Decision: do not hunt for them, do not hardcode them, and do not use them without the team
+saying so.** Three reasons, in order of weight: their status is unconfirmed, so a green run against
+them would prove nothing we could rely on; they are internal endpoints found by reading someone's
+bundle, and the sanctioned channel for exactly this request (#147) is already open with our name on
+it; and the team that operates them is the team judging the hackathon.
+
+**No code change is needed to stay ready.** `PROVING_SERVICE_URL_SEPOLIA` is already an env var
+resolved through `packages/core/src/config.ts` — if the team confirms a URL on #147 or #121, it is
+a one-line `.env` edit and `pnpm smoke:sepolia` runs. Nothing is hardcoded today and nothing should
+become hardcoded.
+
+**Owner action:** if you want this unblocked sooner, ask on #147 whether the alpha-sepolia prover is
+usable by hackathon teams. That is a question for you to ask, not for us to answer by pointing our
+client at it.

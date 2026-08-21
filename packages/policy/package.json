@@ -7,5 +7,8 @@
     "build": "tsc -p .",
     "test": "vitest run"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@kese/core": "workspace:*"
+  }
 }

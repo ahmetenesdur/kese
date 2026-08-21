@@ -41,7 +41,11 @@ importers:
 
   packages/mcp: {}
 
-  packages/policy: {}
+  packages/policy:
+    dependencies:
+      '@kese/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 
@@ -363,7 +367,7 @@ packages:
     resolution: {integrity: sha512-vWOc0FVSn+RmabozIEWcEny1I73nDGTvOrLYJsR1x7LGA3AZmqt4i/aW69o/3i2NN5CVP8Ok6G1ayRQJKye3Wg==}
 
   '@starkware-libs/starknet-privacy-sdk@file:vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz':
-    resolution: {integrity: sha512-qgk1Q/VR2ClpEqbJdjuDMqSP/VdXOUARFIylT2l9KVvA8dVRX5C9J9Ay5nPFmzPsuH7n0E6hg73SgEuLAeqwGg==, tarball: file:vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz}
+    resolution: {integrity: sha512-l2xnxg5zKM1slt33qbQgIbhuU7W4ZqlCq81BzpXbqQs0KBMFy0G/1+NIGEW7pb25IoHFryCuC3yfmRBop72eHQ==, tarball: file:vendor/starkware-libs-starknet-privacy-sdk-0.14.3-rc.5.tgz}
     version: 0.14.3-rc.5
 
   '@types/chai@5.2.3':

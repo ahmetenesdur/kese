@@ -1,4 +1,5 @@
-export type Address = string;
+export type { Address } from "@kese/core";
+import type { Address } from "@kese/core";
 
 export interface PaymentRequest {
   idempotencyKey: string; // REQUIRED on every money-moving tool (LLMs retry)

@@ -17,8 +17,15 @@
 # Usage: ./scripts/vendor-sdk.sh
 set -euo pipefail
 
-# Pin the exact commit the Day-1 spike was verified against. Bump deliberately, not by drift.
-SDK_COMMIT="36eac4ea88cd8c59dde1493176e16501c6e90328"
+# Pin the RELEASE COMMIT for this version, not main HEAD.
+#
+# Originally this pointed at main HEAD (36eac4e), which carries post-rc.5 "Unreleased" changes
+# while package.json still reads 0.14.3-rc.5 — so the artefact was labelled rc.5 but was not rc.5.
+# The diff was not cosmetic: `src/internal/abi.ts` (the PrivacyPoolABI we build the typed pool
+# Contract from) changed by 38 lines, adding open-note screening policies and retiring the
+# depositor block list. Building a client ABI ahead of the deployed pool is how you get a call
+# that compiles, ships, and reverts. 66e3caa is `chore(sdk): release 0.14.3-rc.5 (#943)`.
+SDK_COMMIT="66e3caa"
 SDK_VERSION="0.14.3-rc.5"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

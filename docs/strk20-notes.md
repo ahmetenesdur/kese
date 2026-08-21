@@ -15,8 +15,10 @@ Package: `@starkware-libs/starknet-privacy-sdk` · Node **≥ 24** (WebCrypto). 
 > **Verified Aug 21, 2026:** the `read:packages` scope is the whole ball game — without it the
 > registry returns `403 permission_denied` even though the package is published. `gh auth refresh`
 > is an interactive device-flow, so it is an owner action. Fallback used on Day 1: build the public
-> monorepo and install the packed tarball (docs/decisions.md D-005). Current pinned version:
-> **0.14.3-rc.5** (monorepo commit `36eac4e`).
+> monorepo and install the packed tarball (docs/decisions.md D-005). Current pin: **0.14.3-rc.5**
+> at the **release commit `66e3caa`** — *not* main HEAD. Main carries post-release changes while
+> `package.json` still reads rc.5, including a changed `PrivacyPoolABI`; building a client ABI ahead
+> of the deployed pool ships calls that compile and then revert (D-015).
 
 ```sh
 gh auth refresh -h github.com -s read:packages
@@ -53,6 +55,10 @@ const transfers = createPrivateTransfers({
 })
 ```
 
+**`ContractDiscoveryProvider` is not on the package entry point** — it is exported from
+`@starkware-libs/starknet-privacy-sdk/testing` (verified at release commit `66e3caa`). Importing it
+from the root yields `undefined` and reads like "the SDK doesn't ship it"; it does (D-014).
+
 `provingProvider` / `discoveryProvider` accept **either** a live instance or a plain config object
 (`ProofProviderInterface | ProofProviderConfig`) — the factory builds the production provider from a
 config, so the shape above is valid. When prose and types disagree, `dist/interfaces.d.ts` wins:
@@ -85,6 +91,10 @@ State: `transfers.discoverNotes({ tokens: [BigInt(...)] })` ⇒ `Map<token, Note
 - Re-fetch block number after each `waitForTransaction` when chaining; call `transfers.invalidateProofNonceCache()` where docs indicate.
 - Proof validity window ≈ 450 blocks (~15 min). Proof generation ≈ 29 s on hosted service (show progress in UX; queue jobs).
 - v3 txs: `tip: 0n` mandatory.
+- **Gas reserve (UNVERIFIED, upstream #121):** proving reportedly needs ~24 STRK beyond
+  `estimateInvokeFee`. Not measured — we have no prover yet. Guarded by
+  `assessGasHeadroom()` in `packages/core/src/fees.ts`, tunable via `PROVING_GAS_RESERVE_STRK`.
+  Revise the constant once a real proof has been paid for (D-016).
 
 ## 5. Registration
 

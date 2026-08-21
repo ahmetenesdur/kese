@@ -52,14 +52,16 @@ import {
 } from "@starkware-libs/starknet-privacy-sdk/testing";
 import { PrivacyPoolABI } from "@starkware-libs/starknet-privacy-sdk/abi";
 import {
+  DEFAULT_PROVING_GAS_RESERVE_STRK,
   TOKENS,
+  assessGasHeadroom,
   createRedactor,
   resolveNetwork,
   resolveNetworkConfig,
   resolveSigner,
   type NetworkConfig,
   type SignerConfig,
-} from "../packages/core/src/config.js";
+} from "../packages/core/src/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -208,7 +210,7 @@ class TimedProofProvider implements ProofProviderInterface {
 // Preflight
 // ---------------------------------------------------------------------------
 
-async function preflight(mode: Mode, tokenSymbol: string): Promise<Check[]> {
+async function preflight(mode: Mode, tokenSymbol: string, amount: bigint): Promise<Check[]> {
   const checks: Check[] = [];
   const add = (check: Check) => {
     checks.push(check);
@@ -345,6 +347,41 @@ async function preflight(mode: Mode, tokenSymbol: string): Promise<Check[]> {
         add({
           id: "balance",
           label: `${tokenSymbol} balance`,
+          status: "fail",
+          detail: redact(error),
+          owner: "enes",
+        });
+      }
+
+      // Proving reportedly needs a STRK reserve well past estimateInvokeFee (upstream #121).
+      // The figure is unverified — see packages/core/src/fees.ts — but checking it here turns
+      // "out of gas mid-burst" from a raw RPC revert into a preflight line with a number on it.
+      const strkAddress = TOKENS[net.value.network].STRK!;
+      const reserve = BigInt(
+        process.env.PROVING_GAS_RESERVE_STRK ?? DEFAULT_PROVING_GAS_RESERVE_STRK.toString()
+      );
+      try {
+        const strkBalance = await erc20Balance(provider, strkAddress, signer.value.address);
+        const headroom = assessGasHeadroom({
+          strkBalance,
+          reserve,
+          spendToken: tokenAddress ?? strkAddress,
+          spendAmount: amount,
+          strkAddress,
+        });
+        add({
+          id: "gas-headroom",
+          label: "Gas headroom (STRK)",
+          status: headroom.ok ? "ok" : "missing",
+          detail: headroom.ok
+            ? `${formatUnits(strkBalance)} held, ${formatUnits(headroom.required)} required (reserve ${formatUnits(reserve)}, unverified — #121)`
+            : `short ${formatUnits(headroom.shortfall)} STRK — need ${formatUnits(headroom.required)}, have ${formatUnits(strkBalance)}`,
+          owner: "enes",
+        });
+      } catch (error) {
+        add({
+          id: "gas-headroom",
+          label: "Gas headroom (STRK)",
           status: "fail",
           detail: redact(error),
           owner: "enes",
@@ -1018,7 +1055,7 @@ async function main(): Promise<void> {
   const startedAt = new Date().toISOString();
 
   heading(`Kese — Day-1 STRK20 smoke test  ·  mode=${mode}`);
-  const checks = await preflight(mode, token);
+  const checks = await preflight(mode, token, amount);
 
   heading("Flow");
   let steps: Step[] = [];

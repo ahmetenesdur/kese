@@ -12,6 +12,7 @@
  */
 
 import { constants, ec } from "starknet";
+import type { Address } from "./address.js";
 
 /**
  * Valid viewing keys live in [1, MAX_VIEWING_KEY] — HALF the curve order, not the full range.
