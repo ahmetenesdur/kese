@@ -565,3 +565,40 @@ Toolchain note: the machine's asdf shims are broken (`exec: asdf: not found`), s
 snforge binaries are called by absolute path — `pnpm escrow:build` / `pnpm escrow:test` wrap that.
 `snforge_scarb_plugin` also needs `allow-prebuilt-plugins`, since it is a Rust proc-macro and there
 is no cargo here.
+
+### D-033 — Claim links depend on a pool setting only its governor controls
+
+Found by reading the pool's own Cairo rather than the docs, while checking whether our escrow's
+empty `Deposit` return would be rejected. (It is not: `_apply_invoke_and_deposits` guards with
+`if !deposits.is_empty()`, so a deposit that credits nobody is fine.)
+
+The consequential part is next to it. When an invoked contract **does** return deposits, the pool
+treats that contract as the depositor for screening. In the SDK's unreleased version the default
+policy for an unlisted depositor is `Required`, meaning **our escrow's own address becomes the
+transaction's screening subject** — and `set_open_note_screening_policy` is `only_app_governor()`.
+We could not list ourselves even if we wanted to.
+
+That would hit **both** directions: a claim and a refund each credit an open note, so an escrow the
+screener will not attest would leave funds locked with no way out at all.
+
+**Verified against the live chains instead of assuming.** Both pools report `get_version()` = `2.0`,
+neither has `get_open_note_screening_policy`, and both still answer
+`is_open_note_depositor_blocked` — the older **allow-by-default block list**. Our Sepolia escrow
+returns `0x0`: not blocked.
+
+| | Sepolia pool | Mainnet pool |
+|---|---|---|
+| `get_version()` | `2.0` | `2.0` |
+| screening model | block list (allow by default) | block list (allow by default) |
+| our escrow blocked? | no | n/a — not deployed there yet |
+
+**So claim links are viable today on both networks**, and the risk is a pool upgrade to the newer
+screening model during the sprint. Watch item, not a blocker.
+
+**Owner action, worth asking on #147 alongside the proving question:** when the pool moves to
+`OpenNoteScreeningPolicy`, does a hackathon-deployed anonymizer need listing, and who lists it?
+Getting the answer now is much cheaper than discovering it on Day 8.
+
+**Fallback if the answer is bad:** the escrow can pay a claimer by plain ERC-20 transfer to a public
+address instead of crediting an open note. The claimer loses privacy, the funds stay recoverable,
+and it is a contained contract change. PLAN.md's G2 ("cut claim links") stays the last resort.
