@@ -7,14 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-  MAX_VIEWING_KEY,
-  TOKENS,
-  createRedactor,
-  resolveNetwork,
-  resolveNetworkConfig,
-  resolveSigner,
-} from "./config.js";
+import { MAX_VIEWING_KEY, TOKENS, createModelRedactor, createRedactor, resolveNetwork, resolveNetworkConfig, resolveSigner } from "./config.js";
 
 const PRIVATE_KEY = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const VIEWING_KEY = "1234567890123456789012345678901234567890";
@@ -209,5 +202,51 @@ describe("escrow address is resolved per network", () => {
       ESCROW_CONTRACT_ADDRESS_MAINNET: "0xnew",
     };
     expect(resolveNetworkConfig(env).value?.escrowAddress).toBe("0xnew");
+  });
+});
+
+describe("createModelRedactor", () => {
+  const KEY = "0x0123456789abcdef0123456789abcdef";
+
+  it("keeps the message and drops the stack", () => {
+    // The regression: a raw SDK stack reached an MCP tool result, naming absolute paths under the
+    // operator's home directory and every node_modules frame in between.
+    const redact = createModelRedactor({});
+    const error = new Error("Insufficient balance for token 0x47");
+    const out = redact(error);
+
+    expect(out).toBe("Error: Insufficient balance for token 0x47");
+    expect(out).not.toContain("node_modules");
+    expect(out).not.toContain("/Users/");
+    expect(out.split("\n")).toHaveLength(1);
+  });
+
+  it("still scrubs secrets", () => {
+    const redact = createModelRedactor({ ACCOUNT_PRIVATE_KEY: KEY });
+    expect(redact(new Error(`signing failed with ${KEY}`))).toContain("[REDACTED]");
+    expect(redact(new Error(`signing failed with ${KEY}`))).not.toContain(KEY);
+  });
+
+  it("caps a long message so a tool result cannot become a dump", () => {
+    const redact = createModelRedactor({});
+    const out = redact(new Error("x".repeat(5_000)));
+    expect(out.length).toBeLessThanOrEqual(300);
+    expect(out.endsWith("...")).toBe(true);
+  });
+
+  it("handles non-Error input", () => {
+    const redact = createModelRedactor({});
+    expect(redact("plain string")).toBe("plain string");
+    expect(redact({ nested: { value: 1 } })).toContain("nested");
+  });
+});
+
+describe("createRedactor", () => {
+  it("gives the operator the full stack, exactly once", () => {
+    // The counterpart to the test above: the operator's log wants everything. It was printing the
+    // message twice, because V8 stacks already open with "Name: message".
+    const out = createRedactor({})(new Error("boom"));
+    expect(out.split("boom").length - 1).toBe(1);
+    expect(out).toContain("at ");
   });
 });

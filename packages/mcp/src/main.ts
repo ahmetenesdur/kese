@@ -32,6 +32,7 @@ import { pathToFileURL } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   buildWallet,
+  createModelRedactor,
   createRedactor,
   envSearchPath,
   loadDotEnv,
@@ -54,7 +55,10 @@ function say(line = ""): void {
 export async function main(): Promise<void> {
   const env = loadDotEnv({ from: envSearchPath(import.meta.url) });
 
-  const redact = createRedactor();
+  // Model-facing, deliberately. Both consumers of this one — the MCP server's tool results and the
+  // wallet's failure receipts, which become tool results — are read by an LLM. The operator-facing
+  // paths below call `createRedactor()` directly and keep the full stack.
+  const redact = createModelRedactor();
   const net = resolveNetworkConfig();
   const signer = resolveSigner();
   const policyConfig = loadPolicyConfig();
@@ -87,7 +91,12 @@ export async function main(): Promise<void> {
   });
 
   const network = resolveNetwork();
-  const policy = createPolicyEngine({ dbPath });
+  const policy = createPolicyEngine({
+    dbPath,
+    // A storage failure denies every payment. Without this line the only evidence is the denial
+    // itself, which says nothing on purpose — so the operator sees the cause here, on stderr.
+    onStorageError: (error) => say(`POLICY STORAGE: ${createRedactor()(error).split("\n")[0]}`),
+  });
   const claims = createClaimStore(dbPath);
   const approvals = createApprovalsFromEnv();
 

@@ -27,6 +27,14 @@ export interface ReservationRow {
   state: ReservationState;
 }
 
+/** One row of `PRAGMA table_info`. */
+interface ColumnInfo {
+  name: string;
+  type: string;
+  notnull: number;
+  dflt_value: string | null;
+}
+
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS reservations (
   id          TEXT PRIMARY KEY,
@@ -62,13 +70,62 @@ CREATE TABLE IF NOT EXISTS decisions_log (
 
 export class PolicyStore {
   private readonly db: DatabaseSync;
+  private readonly path: string;
 
   constructor(dbPath: string) {
+    this.path = dbPath;
     this.db = new DatabaseSync(dbPath);
     // WAL keeps a reader (dashboard) from blocking the writer (MCP server).
     if (dbPath !== ":memory:") this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec("PRAGMA foreign_keys = ON");
     this.db.exec(SCHEMA);
+    this.reconcile();
+  }
+
+  /**
+   * Bring an existing database file up to `SCHEMA`.
+   *
+   * `CREATE TABLE IF NOT EXISTS` builds the right tables on an empty disk and then does nothing
+   * forever after. A column added to `SCHEMA` later never reaches a file that already exists, so
+   * the first write naming it throws — and because `decide()` fails closed, that surfaces as
+   * `storage_unavailable` on *every* payment. Fresh installs pass their tests; upgraded ones deny
+   * everything. This method is what makes an upgrade actually upgrade.
+   *
+   * `SCHEMA` stays the single source of truth: the expected shape is read back out of a throwaway
+   * in-memory database built from it, so SQLite does the SQL parsing. A hand-maintained list of
+   * migrations would be one more thing that can drift from `SCHEMA` — the same bug, moved.
+   *
+   * Only added nullable columns are repairable this way. Anything else — a new NOT NULL column
+   * without a default, a changed type, a rename — needs a decision about what the existing rows
+   * should say, which is not a choice to make silently under a money path.
+   */
+  private reconcile(): void {
+    const canonical = new DatabaseSync(":memory:");
+    try {
+      canonical.exec(SCHEMA);
+      const tables = canonical
+        .prepare("SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE ?")
+        .all("table", "sqlite_%") as { name: string }[];
+
+      for (const { name } of tables) {
+        const want = canonical.prepare(`PRAGMA table_info(${name})`).all() as unknown as ColumnInfo[];
+        const have = new Set(
+          (this.db.prepare(`PRAGMA table_info(${name})`).all() as unknown as ColumnInfo[]).map((c) => c.name)
+        );
+        for (const column of want) {
+          if (have.has(column.name)) continue;
+          if (column.notnull === 1 && column.dflt_value === null) {
+            throw new Error(
+              `policy database at ${this.path} is missing ${name}.${column.name}, which cannot be ` +
+                `added to existing rows automatically. Migrate or recreate the database.`
+            );
+          }
+          this.db.exec(`ALTER TABLE ${name} ADD COLUMN ${column.name} ${column.type}`);
+        }
+      }
+    } finally {
+      canonical.close();
+    }
   }
 
   /** Run `fn` inside an immediate transaction; roll back if it throws. */

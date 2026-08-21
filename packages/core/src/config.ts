@@ -196,7 +196,9 @@ export function createRedactor(env: Env = process.env): (input: unknown) => stri
   return (input: unknown): string => {
     let text =
       input instanceof Error
-        ? `${input.name}: ${input.message}${input.stack ? `\n${input.stack}` : ""}`
+        // V8 stacks already begin with "Name: message", so prefixing it again printed every
+        // error twice.
+        ? (input.stack ?? `${input.name}: ${input.message}`)
         : typeof input === "string"
           ? input
           : safeStringify(input);
@@ -214,4 +216,29 @@ function safeStringify(input: unknown): string {
   } catch {
     return String(input);
   }
+}
+
+/**
+ * Redact for an audience that is a language model, not an operator.
+ *
+ * `createRedactor` scrubs known secrets and keeps everything else — the stack, the absolute paths,
+ * the `node_modules` frames. That is the right answer for the server's own log, where more detail
+ * is strictly better, and the wrong answer for a value about to become an MCP tool result:
+ *
+ * - a stack names real filesystem paths, home directory included, and Kese's whole posture is that
+ *   an LLM sees only what it needs (hard rule 1 draws that line at keys; this is the same line);
+ * - the model cannot act on frame addresses inside a dependency, so they are pure context burn;
+ * - a wall of trace buries the one sentence that tells the model what to do differently.
+ *
+ * So: the message, scrubbed, and nothing else. The operator still gets the full version — the two
+ * audiences are served by two functions rather than one compromise.
+ */
+export function createModelRedactor(env: Env = process.env): (input: unknown) => string {
+  const full = createRedactor(env);
+  return (input: unknown): string => {
+    const text = input instanceof Error ? full(`${input.name}: ${input.message}`) : full(input);
+    // Non-Error input can still be an arbitrarily large object; a tool result is not a dump site.
+    const firstLine = text.split("\n")[0]!.trim();
+    return firstLine.length > 300 ? `${firstLine.slice(0, 297)}...` : firstLine;
+  };
 }

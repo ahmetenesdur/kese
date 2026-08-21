@@ -14,6 +14,15 @@ export interface PolicyEngineOptions {
   dbPath: string;
   /** Injectable clock (ms since epoch) so window-boundary tests are deterministic. */
   now?: () => number;
+  /**
+   * Called with the real error when a storage failure forces a denial.
+   *
+   * The denial an LLM receives is deliberately vague — the underlying error can carry SQL and file
+   * paths. But the *operator* needs the specific cause, or a database problem presents itself as
+   * "every payment is denied" with nothing to go on. This hook is where the real error goes; the
+   * caller decides where that is (the MCP server sends it to stderr, never stdout).
+   */
+  onStorageError?: (error: unknown) => void;
 }
 
 function deny(code: DenyCode, reason: string): Decision {
@@ -184,9 +193,12 @@ export function createPolicyEngine(options: PolicyEngineOptions): PolicyEngine {
           decision: decision.kind,
           code: decision.kind === "deny" ? decision.code : undefined,
         });
-      } catch {
-        // Fail closed (hard rule 4). The error is deliberately not surfaced: it can carry SQL and
-        // file paths, and this value is headed for an LLM's context.
+      } catch (error) {
+        // Fail closed (hard rule 4). The error is deliberately not surfaced *to the caller*: it can
+        // carry SQL and file paths, and this value is headed for an LLM's context. It still has to
+        // reach the operator, or the only symptom of a broken database is a total, unexplained
+        // refusal to pay — which is exactly how the missing `memo` column went unnoticed.
+        options.onStorageError?.(error);
         return deny(
           "storage_unavailable",
           "policy storage is unavailable — refusing to authorise a payment we cannot record"
