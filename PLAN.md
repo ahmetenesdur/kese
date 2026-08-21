@@ -46,6 +46,9 @@ Rule of thumb: cut features, never cut the demo/video/docs days.
 - Fallback: if Cairo stalls → cut claim links, ship "registered-only payments" (contracts field stays empty; acceptable loss). Softer fallback first: escrow pays the claimer by plain ERC-20 transfer instead of an open note — claimer loses privacy, funds stay recoverable.
 
 ## Phase M — Mainnet (Day 8, Aug 28)
+- [x] Mainnet account deployed — `0x76bdc7a5…14062`, tx `0xe805d13b…171612`, block 13639611,
+      gas 0.054 STRK. Armed with `KESE_MAINNET_ARMED`. NOT an eligible transaction: it carries
+      zero pool events. Preflight now passes everything except the unverified 24 STRK reserve.
 - [x] Mainnet dry run (simulate): pool reachable, `discoverRequirement` → Register, shield compiles and is node-executed — with no deployed account. Day 8 is funding + submitting, not debugging (D-040)
 - [x] Costs read from the chain: pool fee **6 STRK per operation** on mainnet (2 on Sepolia), proof validity 450 blocks. **Owner: budget ~45–50 STRK** — 3 ops ≈ 18 in fees, plus the shielded amounts, gas, account deploy, and the unverified ~24 reserve
 - [x] Eligibility clarified: three hashes each carrying **any** STRK20 pool event — not necessarily deposits (D-040)
