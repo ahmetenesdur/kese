@@ -1246,3 +1246,39 @@ hands them back. It is worth knowing before someone asks.
 the same object as the one submitted. Our own submissions use `tip: 0n` and are accepted, so
 nothing is broken — but the note is narrower than it reads. Left as an open thread rather than
 quietly rewritten on one observation.
+
+---
+
+## D-049 — An API key was one `vite build` away from being published
+
+**Date:** 2026-08-21 · **Phase:** D · **Status:** fixed, and now structurally prevented
+
+Building the landing page meant running `npx vite build apps/claim` without the environment
+overrides that earlier builds had passed explicitly. The output contained:
+
+```
+rpcUrl: `https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/alch_…`
+```
+
+The owner's Alchemy key, inlined into a public bundle. Vite does that to every `VITE_*` value by
+design — the prefix *means* "safe to publish" — and `apps/claim/.env` held a keyed endpoint.
+
+**Nothing was exposed.** The deployed site is built by Vercel from `apps/claim/vercel/env`, which
+uses a keyless public endpoint; the live bundle was fetched and checked and contains no key. That
+is also exactly why this went unnoticed for a day: the file that would have leaked was not the file
+being read.
+
+**The fix is not discipline.** `.env` now holds the public endpoint, and `pnpm build` in that app
+runs `scripts/check-bundle-clean.mjs` over its own output. A key cannot reach production without
+the build failing first. Verified in both directions: it rejects a build with a planted key, and
+passes a clean one.
+
+**What the guard deliberately does not check.** A bare 64-hex literal is the shape of a Starknet
+private key — and also of every contract address, class hash and curve constant that legitimately
+lives in this bundle. The rule fired 24 times on a clean build before it was removed. A check that
+cries wolf on every run gets switched off, and a switched-off check protects nothing; precision
+matters more than coverage for a guard that has to survive being useful. Private keys stay out of
+the browser by a different mechanism anyway: they are never `VITE_*`, so there is nothing to inline.
+
+**The pattern, again.** The dangerous thing was not the key in the file. It was that two files
+disagreed and only one was ever read, so the wrong one could sit there indefinitely looking fine.
