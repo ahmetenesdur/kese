@@ -8,8 +8,6 @@ threshold, and leaves the owner a complete audit trail.
 
 > *Kese* (Turkish): a money pouch. Your agent gets the pouch, never the vault.
 
-**Live demo → [kese-claim.vercel.app](https://kese-claim.vercel.app)**
-
 MIT · Node ≥ 24 · TypeScript + Cairo · 334 TS tests, 19 Cairo tests
 
 ---
@@ -187,7 +185,7 @@ missing and exits, rather than starting with tools an agent would find working.
 | **Keys** | `ACCOUNT_PRIVATE_KEY` and `VIEWING_KEY` live only in server env. A redactor scrubs them from every error before it can reach a log, a tool result, or a screenshot. They never enter the model's context. |
 | **Transport** | stdio only. The owner dashboard binds to `127.0.0.1` and has no auth *because* it has no network path — it shows private balances, so exposing it would need auth first. |
 | **Untrusted input** | The payment memo is written by an LLM repeating whatever it was told. The CSV export neutralises `=`, `+`, `-`, `@` — otherwise a refused payment is enough to run a formula in the owner's spreadsheet. |
-| **Public demo** | The public demo is the *claim* page. The dashboard is never deployed. |
+| **Public deploys** | Only the *claim* page is ever deployed publicly. The dashboard is never deployed. |
 
 ## Honest limits
 
@@ -207,11 +205,10 @@ The pool is not a cloak, and overstating it would be the easiest way to get some
 
 | | |
 |---|---|
-| Demo | [kese-claim.vercel.app](https://kese-claim.vercel.app) — the claim page, reading the live Sepolia escrow. The four recipient screens are reachable as clearly-labelled samples, because no funded link can exist until proving works. |
 | Escrow | deployed and verified on **both** networks — mainnet [`0x4b41a5…99f3`](https://voyager.online/contract/0x4b41a5648796ce290fcba3f5630a66f9fe737f58de6b9589a5d780a2c4999f3), Sepolia [`0x1ff4c7…3108`](https://sepolia.starkscan.co/contract/0x1ff4c7f216a9e1452e4533e03f926e2b10c7868a085b52c6034bcaa3cf3108). `pool()` returns the right pool on each. Needs no proof — a plain Cairo contract. |
 | Mainnet | account deployed and funded (`0x76bdc7a5…14062`, block 13639611); every preflight check passes; the full flow compiles and node-executes against the live pool in simulate mode. **No pool transactions submitted yet** — the account deployment carries no pool event, so it is not one of them. |
 | Blocker | the **proving service URL is not public**, and nothing reaches the pool without a proof: its only user-facing entrypoint is `apply_actions`, which consumes one, and a STARK proof cannot be produced on-chain (D-044). Six teams are waiting upstream. Our fallback is one command — [`scripts/prover-up.sh`](scripts/prover-up.sh) on a rented amd64 box (D-043). |
-| `strk20.json` | `demo_url` is live. Transaction hashes and the mainnet escrow address are still placeholders, and stay that way until they are real — an aspirational hash is worse than an obvious `TODO`. See [`SUBMISSION.md`](SUBMISSION.md). |
+| `strk20.json` | Transaction hashes and the mainnet escrow address are still placeholders, and stay that way until they are real — an aspirational hash is worse than an obvious `TODO`. See [`SUBMISSION.md`](SUBMISSION.md). |
 
 ## Build and test
 
