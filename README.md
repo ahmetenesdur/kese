@@ -8,7 +8,15 @@ threshold, and leaves the owner a complete audit trail.
 
 > *Kese* (Turkish): a money pouch. Your agent gets the pouch, never the vault.
 
-MIT · Node ≥ 24 · TypeScript + Cairo · 334 TS tests, 19 Cairo tests
+> [!WARNING]
+> **Unaudited prototype.** No pool transactions have run yet: nothing reaches the STRK20 pool
+> without a proof, and the proving service is not public. The escrow contract is deployed, and the
+> full flow runs against an in-memory pool and compiles against the live one, but no funds have
+> moved through Kese. Do not point it at money you cannot lose. Details under [Status](#status).
+
+[![CI](https://github.com/ahmetenesdur/kese/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ahmetenesdur/kese/actions/workflows/ci.yml)
+
+MIT · Node ≥ 24 · TypeScript + Cairo · 379 TS tests, 19 Cairo tests
 
 ---
 
@@ -22,11 +30,11 @@ constrain the agent, and constraint usually means a custodian who can see everyt
 
 - **Private** — in-pool STRK20 transfers hide sender, recipient and amount.
 - **Bounded** — a deterministic policy engine sits between the model and the money: per-tx and
-  daily caps, recipient allowlist, Telegram approval above a threshold, and idempotency so a
-  retrying model can never double-pay. The keys are never in the model's context.
+  daily caps, a recipient allowlist for direct payments, Telegram approval above a threshold, and
+  idempotency so a retrying model can never double-pay. The keys are never in the model's context.
 - **Accountable** — viewing-key spend reports for the owner. *Privacy from the world, not from you.*
 - **Pays anyone** — a claim-link escrow contract lets the agent pay recipients who have never
-  touched the pool. Unclaimed funds refund after expiry.
+  touched the pool. After expiry the escrow lets the payer take unclaimed funds back.
 
 ## See it work in 60 seconds
 
@@ -102,8 +110,8 @@ Long form in [`docs/strk20-notes.md`](docs/strk20-notes.md).
 
 The rule that shapes the whole codebase: **no tool calls a transfer function directly.** Every
 money-moving path goes through [`packages/policy`](packages/policy), which decides in a fixed
-order — validate, allowlist, token configured, per-tx cap, approval threshold, daily cap — and
-returns `allow`, `deny(code)` or `needs_approval`.
+order — validate, claim links enabled, allowlist, token configured, per-tx cap, daily cap
+(reserve), approval threshold — and returns `allow`, `deny(code)` or `needs_approval`.
 
 Three properties it has to hold under an agent that retries:
 
@@ -116,7 +124,7 @@ Three properties it has to hold under an agent that retries:
   is deny. A wallet server that came up with no limits would be worse than one that failed,
   because the agent would find it working — so the MCP server refuses to start without a policy.
 
-54 of the 334 tests are on this engine alone, including the race conditions.
+59 of the 379 tests are on this engine alone, including the race conditions.
 
 ## Claim links
 
@@ -185,6 +193,7 @@ missing and exits, rather than starting with tools an agent would find working.
 | **Keys** | `ACCOUNT_PRIVATE_KEY` and `VIEWING_KEY` live only in server env. A redactor scrubs them from every error before it can reach a log, a tool result, or a screenshot. They never enter the model's context. |
 | **Transport** | stdio only. The owner dashboard binds to `127.0.0.1` and has no auth *because* it has no network path — it shows private balances, so exposing it would need auth first. |
 | **Untrusted input** | The payment memo is written by an LLM repeating whatever it was told. The CSV export neutralises `=`, `+`, `-`, `@` — otherwise a refused payment is enough to run a formula in the owner's spreadsheet. |
+| **Allowlist scope** | The recipient allowlist binds **direct payments and withdrawals only**. A claim link has no recipient — whoever holds the link claims it — so the allowlist cannot apply to it. What still bounds a claim link, each pinned by a test: the per-transaction cap (absolute, cannot be approved past); the rolling 24h cap, reserved atomically from the same budget as direct payments; the approval threshold, above which a human must approve on Telegram; idempotency, so a retried key cannot create a second link; and the token must be configured. After expiry the escrow lets the holder of the refund secret, kept server-side, take unclaimed funds back; Kese does not yet ship a command that submits that refund. Owners who want every payment bound to a known address set `POLICY_DISABLE_CLAIM_LINKS=true`, and the engine then denies every claim link with `claim_links_disabled`. |
 | **Public deploys** | Only the *claim* page is ever deployed publicly. The dashboard is never deployed. |
 
 ## Honest limits
@@ -213,7 +222,7 @@ The pool is not a cloak, and overstating it would be the easiest way to get some
 ## Build and test
 
 ```bash
-pnpm test          # 334 TypeScript tests
+pnpm test          # 379 TypeScript tests
 pnpm typecheck     # builds every package, then checks the scripts
 pnpm escrow:test   # 19 Cairo tests (needs scarb + snforge; everything else does not)
 pnpm dashboard     # owner view on 127.0.0.1:5184
