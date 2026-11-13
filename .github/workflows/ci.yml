@@ -30,15 +30,16 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # .npmrc maps @starkware-libs to GitHub Packages; this supplies the token. pnpm expands the
-      # variable at read time, so the token itself is never written to disk.
-      - name: Authenticate to GitHub Packages
-        run: echo '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' >> ~/.npmrc
-
+      # .npmrc maps @starkware-libs to GitHub Packages; this supplies the token, for the install
+      # step only. The user config lives in a step-scoped file and references the variable, so the
+      # token is never written to disk and later steps neither see it nor warn about it.
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: |
+          echo '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' > "$npm_config_userconfig"
+          pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_userconfig: ${{ runner.temp }}/registry-auth.npmrc
 
       # `pnpm typecheck` is `pnpm -r build` (every package and app, including the claim page's
       # bundle-secret check, scripts/check-bundle-clean.mjs) followed by tsc over scripts/.
