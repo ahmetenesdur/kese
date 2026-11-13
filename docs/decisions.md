@@ -1387,3 +1387,24 @@ and the wallet path was untestable here — no extension in this environment. Th
 time, and stating it is not the same as covering it. The honest reading is that an untestable path
 should ship with output that cannot be mistaken for evidence: "no request() method" reads as a
 finding, where "could not reach this wallet's API" would have read as a failure to look.
+
+---
+
+## D-052 — The allowlist does not bind claim links, and the owner can now turn them off
+
+**Date:** 2026-11-14 · **Phase:** post-sprint · **Status:** documented; opt-out added
+
+An outside review read `evaluate()` as an allowlist bypass: a `claim_link` request carries no
+recipient, so the `recipient_not_allowlisted` check never fires for it. That is by design — a claim
+link exists to pay someone the pool cannot address yet, and whoever holds the link claims it — but
+it was stated only in a code comment, so it read as an accident.
+
+What still bounds a claim link, each pinned by a test in `engine.test.ts` ("claim links"): the
+per-transaction cap (absolute), the rolling 24h cap with an atomic reservation shared with direct
+payments, the approval threshold, idempotency, and the token having to be configured. The escrow
+refunds unclaimed funds to the payer after expiry.
+
+**Change.** `POLICY_DISABLE_CLAIM_LINKS=true` (`PolicyConfig.disableClaimLinks`) makes the engine deny
+every claim link with `claim_links_disabled`, for owners who want every payment bound to a known
+address. Unset keeps today's behaviour. A value other than `true`/`false` is a startup error, since
+reading a typo as "enabled" would leave claim links on for an owner who meant to turn them off.

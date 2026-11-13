@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  # The Privacy SDK is published to GitHub Packages, which needs a token even for public packages.
+  packages: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript — typecheck, build, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.9
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # .npmrc maps @starkware-libs to GitHub Packages; this supplies the token, for the install
+      # step only. The user config lives in a step-scoped file and references the variable, so the
+      # token is never written to disk and later steps neither see it nor warn about it.
+      - name: Install
+        run: |
+          echo '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' > "$npm_config_userconfig"
+          pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_userconfig: ${{ runner.temp }}/registry-auth.npmrc
+
+      # `pnpm typecheck` is `pnpm -r build` (every package and app, including the claim page's
+      # bundle-secret check, scripts/check-bundle-clean.mjs) followed by tsc over scripts/.
+      - name: Build and typecheck
+        run: pnpm typecheck
+
+      # Runs after the build on purpose: `pnpm test` starts with scripts/check-no-shadow.mjs, which
+      # fails if compiled output landed beside the sources and would shadow them.
+      - name: Test
+        run: pnpm test
+
+  cairo:
+    name: Cairo escrow — scarb build, snforge test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Versions match contracts/escrow-claim/Scarb.toml (starknet 2.16.0, snforge_std 0.57.0).
+      - uses: software-mansion/setup-scarb@v1
+        with:
+          scarb-version: "2.16.0"
+          scarb-lock: contracts/escrow-claim/Scarb.lock
+
+      - uses: foundry-rs/setup-snfoundry@v6
+        with:
+          starknet-foundry-version: "0.57.0"
+
+      - name: Build
+        run: bash scripts/cairo.sh build
+
+      - name: Test
+        run: bash scripts/cairo.sh test

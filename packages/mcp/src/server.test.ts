@@ -222,6 +222,7 @@ describe("read-only tools", () => {
     expect(parse(result)).toMatchObject({
       tokens: [{ symbol: "STRK", perTxCap: "100", dailyCap: "250", approvalThreshold: "50" }],
       allowlist: [BOB],
+      claimLinksEnabled: true,
     });
   });
 

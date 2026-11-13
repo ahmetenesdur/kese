@@ -13,6 +13,7 @@
  *   POLICY_DAILY_CAP=STRK:250
  *   POLICY_APPROVAL_THRESHOLD=STRK:50
  *   POLICY_ALLOWLIST=0x0a11ce,0x0b0b     # or the literal "any"
+ *   POLICY_DISABLE_CLAIM_LINKS=true      # optional; claim links stay enabled when unset
  *
  * Amounts are in WHOLE TOKENS, not the smallest unit. A human writing "100" means 100 STRK; making
  * them write 100000000000000000000 is how you get an off-by-10^18 in a spending limit.
@@ -40,6 +41,7 @@ export function loadPolicyConfig(env: Env = process.env): LoadResult {
   const dailyCap = parseAmountMap(env, "POLICY_DAILY_CAP", known, errors);
   const approvalThreshold = parseAmountMap(env, "POLICY_APPROVAL_THRESHOLD", known, errors);
   const allowlist = parseAllowlist(env.POLICY_ALLOWLIST, errors);
+  const disableClaimLinks = parseFlag(env, "POLICY_DISABLE_CLAIM_LINKS", errors);
 
   // A token needs all three or the engine denies it as unconfigured. Catching that here turns a
   // baffling runtime denial into a startup error naming the token.
@@ -78,6 +80,7 @@ export function loadPolicyConfig(env: Env = process.env): LoadResult {
       approvalThreshold,
       allowlist: allowlist!,
       claimLinkDefaultExpiryBlocks: Number(env.CLAIM_LINK_EXPIRY_BLOCKS ?? 1000),
+      disableClaimLinks,
     },
   };
 }
@@ -162,6 +165,15 @@ function parseAllowlist(raw: string | undefined, errors: string[]): string[] | "
     return null;
   }
   return entries;
+}
+
+/** "true" / "false", or unset for false. Anything else is an error, not a guess. */
+function parseFlag(env: Env, key: string, errors: string[]): boolean {
+  const raw = env[key]?.trim().toLowerCase();
+  if (raw === undefined || raw === "" || raw === "false") return false;
+  if (raw === "true") return true;
+  errors.push(`${key}: expected "true" or "false", got "${env[key]}"`);
+  return false;
 }
 
 /** Prefer the symbol in error text — an operator recognises "ETH" faster than an address. */

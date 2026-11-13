@@ -55,9 +55,6 @@ function hashRequest(req: PaymentRequest): string {
  * Config is hand-written and requests come from an LLM, so the same token can arrive written two
  * ways. Plain `record[token]` would miss a zero-padded address and fall through to
  * `token_not_configured` — a confusing denial for a token that is, in fact, configured.
- */
-/**
- * Look a token up in a config map, comparing addresses rather than strings.
  *
  * Exported because reading a cap for a token is not only the engine's business — anything that
  * shows the owner a limit has to normalise the same way, or `0x04b2…` misses a key stored as
@@ -76,9 +73,14 @@ export function lookupByAddress<T>(record: Record<string, T>, token: string): T 
  * The deterministic policy core (CLAUDE.md hard rule 2 — nothing reaches money except through here).
  *
  * Check order is deliberate, cheapest and most absolute first:
- *   validate → allowlist → token configured → per-tx cap → approval threshold
+ *   validate → claim links enabled → allowlist → token configured → per-tx cap → daily cap
+ *   (reserve) → approval threshold
  * A cap is a ceiling, not a prompt: an amount over `perTxCap` is denied outright and never becomes
  * an approval request (docs/decisions.md D-011).
+ *
+ * The allowlist binds direct payments only. A claim link has no recipient — whoever holds the link
+ * claims it — so it is bounded by the caps, the daily reservation and the approval threshold, or
+ * refused outright when the owner sets `disableClaimLinks`.
  */
 export function createPolicyEngine(options: PolicyEngineOptions): PolicyEngine {
   const now = options.now ?? (() => Date.now());
@@ -105,6 +107,12 @@ export function createPolicyEngine(options: PolicyEngineOptions): PolicyEngine {
     const recipient = req.recipient ? tryNormalizeAddress(req.recipient) : null;
     if (req.recipient && recipient === null) {
       return deny("invalid_request", "recipient is not a valid address");
+    }
+
+    // The allowlist below cannot see a claim link (there is no recipient to check), so an owner who
+    // wants every payment bound to a known address switches claim links off here instead.
+    if (req.kind === "claim_link" && cfg.disableClaimLinks === true) {
+      return deny("claim_links_disabled", "claim links are disabled by the owner's policy");
     }
 
     if (cfg.allowlist !== "any" && recipient) {

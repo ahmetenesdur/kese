@@ -3,6 +3,8 @@ node_modules/
 .env.local
 dist/
 target/
+# snforge's local test cache (rerun-failed state); regenerated on every `snforge test`
+.snfoundry_cache/
 *.log
 .DS_Store
 

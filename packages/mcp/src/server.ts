@@ -159,8 +159,10 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
       title: "Get spending policy",
       description:
         "Return the spending rules this agent operates under: per-transaction caps, rolling 24h " +
-        "caps, the recipient allowlist, and the amount above which a human must approve. " +
-        "Caps are ABSOLUTE — a payment above a cap is refused outright and cannot be approved.",
+        "caps, the recipient allowlist, whether claim links are enabled, and the amount above which " +
+        "a human must approve. Caps are ABSOLUTE — a payment above a cap is refused outright and " +
+        "cannot be approved. The allowlist applies to direct payments and withdrawals; claim links " +
+        "have no recipient and are bounded by the caps and approval threshold instead.",
       inputSchema: {},
       outputSchema: {
         tokens: z.array(
@@ -173,6 +175,7 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
           })
         ),
         allowlist: z.union([z.literal("any"), z.array(z.string())]),
+        claimLinksEnabled: z.boolean(),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -186,6 +189,7 @@ export function createKeseMcpServer(deps: ServerDeps): McpServer {
           approvalThreshold: formatTokenAmount(deps.config.approvalThreshold[token]!),
         })),
         allowlist: deps.config.allowlist,
+        claimLinksEnabled: deps.config.disableClaimLinks !== true,
       })
   );
 
