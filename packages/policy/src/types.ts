@@ -17,6 +17,12 @@ export interface PolicyConfig {
   allowlist: Address[] | "any";
   approvalThreshold: Record<Address, bigint>; // above => needs human approval
   claimLinkDefaultExpiryBlocks: number;
+  /**
+   * Refuse every claim link. A claim link has no recipient, so the allowlist cannot apply to it;
+   * an owner who wants every payment bound to a known address turns claim links off. Absent means
+   * enabled, which is the default.
+   */
+  disableClaimLinks?: boolean;
 }
 
 /**
@@ -25,6 +31,7 @@ export interface PolicyConfig {
  */
 export type DenyCode =
   | "recipient_not_allowlisted"
+  | "claim_links_disabled"
   | "per_tx_cap_exceeded"
   | "daily_cap_exceeded"
   | "token_not_configured"

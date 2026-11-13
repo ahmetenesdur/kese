@@ -52,6 +52,20 @@ describe("loadPolicyConfig", () => {
     expect(result.ok && result.config.allowlist).toBe("any");
   });
 
+  it("keeps claim links enabled unless the owner turns them off", () => {
+    const unset = loadPolicyConfig(baseEnv);
+    expect(unset.ok && unset.config.disableClaimLinks).toBe(false);
+    const off = loadPolicyConfig({ ...baseEnv, POLICY_DISABLE_CLAIM_LINKS: "true" });
+    expect(off.ok && off.config.disableClaimLinks).toBe(true);
+  });
+
+  it("rejects a claim-link flag it cannot read rather than guessing", () => {
+    // "yes" or "1" read as false would leave claim links on for an owner who meant to turn them off.
+    const result = loadPolicyConfig({ ...baseEnv, POLICY_DISABLE_CLAIM_LINKS: "yes" });
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.errors.join(" ")).toMatch(/POLICY_DISABLE_CLAIM_LINKS/);
+  });
+
   it("supports several tokens in one entry", () => {
     const result = loadPolicyConfig({
       ...baseEnv,

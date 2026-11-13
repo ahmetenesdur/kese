@@ -160,6 +160,45 @@ describe("request validation", () => {
   });
 });
 
+describe("claim links", () => {
+  // A claim link has no recipient, so the allowlist cannot bind it. These pin down what does.
+  const claim = (amount: bigint) => request({ kind: "claim_link", recipient: undefined, amount });
+
+  it("are still refused above the per-transaction cap", async () => {
+    const decision = await engine.decide(claim(150n), config);
+    expect(decision).toMatchObject({ kind: "deny", code: "per_tx_cap_exceeded" });
+  });
+
+  it("still ask a human above the approval threshold", async () => {
+    const decision = await engine.decide(claim(51n), config);
+    expect(decision.kind).toBe("needs_approval");
+  });
+
+  it("reserve against the same daily cap as direct payments", async () => {
+    expect((await engine.decide(claim(50n), config)).kind).toBe("allow");
+    expect((await engine.decide(claim(50n), config)).kind).toBe("allow");
+    expect((await engine.decide(request({ amount: 100n }), config)).kind).toBe("needs_approval");
+    // 200 of 250 reserved; a claim link cannot take the rolling total past the cap.
+    const over = await engine.decide(claim(51n), config);
+    expect(over).toMatchObject({ kind: "deny", code: "daily_cap_exceeded" });
+  });
+
+  it("are refused outright when the owner disables them", async () => {
+    const decision = await engine.decide(claim(10n), { ...config, disableClaimLinks: true });
+    expect(decision).toMatchObject({ kind: "deny", code: "claim_links_disabled" });
+    // A refusal reserves nothing.
+    expect(await engine.remainingDaily(STRK, config)).toBe(250n);
+  });
+
+  it("leave direct payments untouched when disabled", async () => {
+    const decision = await engine.decide(request({ amount: 10n }), {
+      ...config,
+      disableClaimLinks: true,
+    });
+    expect(decision.kind).toBe("allow");
+  });
+});
+
 const HOUR = 60 * 60 * 1000;
 
 describe("rolling daily cap", () => {
